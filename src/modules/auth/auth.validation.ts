@@ -7,3 +7,10 @@ export const registerSchema = z.object({
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+export const loginSchema = z.object({
+  email: z.string().email("email must be valid"),
+  password: z.string().min(8, "password must be at least 8 characters"),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;

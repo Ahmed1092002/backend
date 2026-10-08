@@ -11,9 +11,7 @@ type RegisterInput = {
   password: string;
 };
 
-export async function register(
-  input: RegisterInput,
-): Promise<UserResponseDto> {
+export async function register(input: RegisterInput): Promise<UserResponseDto> {
   const passwordHash = await bcrypt.hash(input.password, 12);
 
   try {
@@ -34,4 +32,21 @@ export async function register(
 
     throw error;
   }
+}
+export async function login(
+  email: string,
+  password: string,
+): Promise<UserResponseDto | null> {
+  const user = await usersRepository.findByEmail(email);
+
+  if (!user || !user.passwordHash) {
+    return null;
+  }
+  const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+
+  if (!isPasswordValid) {
+    return null;
+  }
+
+  return toUserResponseDto(user);
 }
