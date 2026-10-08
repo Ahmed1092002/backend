@@ -1,13 +1,12 @@
 import express from "express";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
-import { productsRouter } from "./modules/products/products.router.js";
+import { router } from "./router/router.js";
 
 export const app = express();
 
 app.use(requestLogger);
 app.use(express.json());
-app.use("/products", productsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Route not found" });
@@ -28,3 +27,5 @@ app.get("/health", (_req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use("/api", router);
