@@ -6,10 +6,11 @@ export function requestLogger(
   next: NextFunction,
 ): void {
   const startedAt = performance.now();
+  const url = req.originalUrl;
 
   res.on("finish", () => {
     const durationMs = Math.round(performance.now() - startedAt);
-    console.log(`${req.method} ${req.path} -> ${res.statusCode} (${durationMs} ms)`);
+    console.log(`${req.method} ${url} -> ${res.statusCode} (${durationMs} ms)`);
   });
 
   next();
