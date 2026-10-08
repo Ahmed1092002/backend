@@ -1,6 +1,9 @@
 import express from "express";
+import { requestLogger } from "./middleware/request-logger.js";
 
 export const app = express();
+
+app.use(requestLogger);
 
 app.get("/", (_req, res) => {
   res.status(200).json({
