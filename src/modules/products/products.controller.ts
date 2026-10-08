@@ -4,11 +4,7 @@ import {
   findProductById,
   listProducts,
 } from "./products.service.js";
-
-type CreateProductBody = {
-  name?: unknown;
-  price?: unknown;
-};
+import type { CreateProductInput } from "./products.validation.js";
 
 export const getProducts: RequestHandler = (_req, res) => {
   res.status(200).json({ data: listProducts() });
@@ -33,18 +29,6 @@ export const getProductById: RequestHandler = (req, res) => {
 };
 
 export const createProduct: RequestHandler = (req, res) => {
-  const { name, price } = req.body as CreateProductBody;
-
-  if (typeof name !== "string" || name.trim() === "") {
-    res.status(400).json({ error: "name must be a non-empty string" });
-    return;
-  }
-
-  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
-    res.status(400).json({ error: "price must be a non-negative number" });
-    return;
-  }
-
-  const product = createProductInService({ name: name.trim(), price });
+  const product = createProductInService(req.body as CreateProductInput);
   res.status(201).json({ data: product });
 };
