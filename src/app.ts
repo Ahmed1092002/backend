@@ -5,6 +5,7 @@ import { productsRouter } from "./modules/products/products.router.js";
 export const app = express();
 
 app.use(requestLogger);
+app.use(express.json());
 app.use("/products", productsRouter);
 
 app.get("/", (_req, res) => {
