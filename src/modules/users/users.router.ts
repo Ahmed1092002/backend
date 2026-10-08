@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { validateBody } from "../../middleware/validate-body.js";
-import { validateParams } from "../../middleware/validate-params.js";
+import { validate } from "../../middleware/validate.js";
 import {
   createUser,
   getUserByEmail,
@@ -17,8 +16,12 @@ import {
 export const usersRouter = Router();
 
 usersRouter.get("/", getUsers);
-usersRouter.get("/email/:email", validateParams(findUserByEmailSchema), getUserByEmail);
+usersRouter.get(
+  "/email/:email",
+  validate(findUserByEmailSchema, "params"),
+  getUserByEmail,
+);
 usersRouter.get("/:id", getUserById);
-usersRouter.post("/", validateBody(createUserSchema), createUser);
-usersRouter.patch("/:id", validateBody(updateUserSchema), updateUser);
+usersRouter.post("/", validate(createUserSchema), createUser);
+usersRouter.patch("/:id", validate(updateUserSchema), updateUser);
 

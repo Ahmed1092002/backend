@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { validateBody } from "../../middleware/validate-body.js";
-import { validateQuery } from "../../middleware/validate-query.js";
+import { validate } from "../../middleware/validate.js";
 import {
   createProduct,
   deleteProduct,
@@ -16,8 +15,8 @@ import {
 
 export const productsRouter = Router();
 
-productsRouter.get("/", validateQuery(listProductsQuerySchema), getProducts);
+productsRouter.get("/", validate(listProductsQuerySchema, "query"), getProducts);
 productsRouter.get("/:id", getProductById);
-productsRouter.post("/", validateBody(createProductSchema), createProduct);
-productsRouter.patch("/:id", validateBody(updateProductSchema), updateProduct);
+productsRouter.post("/", validate(createProductSchema), createProduct);
+productsRouter.patch("/:id", validate(updateProductSchema), updateProduct);
 productsRouter.delete("/:id", deleteProduct);

@@ -3,17 +3,22 @@ import type { ZodType } from "zod";
 
 type ValidationSource = "body" | "query" | "params";
 
+const fallbackErrors: Record<ValidationSource, string> = {
+  body: "Invalid request body",
+  query: "Invalid query parameters",
+  params: "Invalid route parameters",
+};
+
 export function validate(
   schema: ZodType,
-  source: ValidationSource,
-  fallbackError: string,
+  source: ValidationSource = "body",
 ): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req[source]);
 
     if (!result.success) {
       res.status(400).json({
-        error: result.error.issues[0]?.message ?? fallbackError,
+        error: result.error.issues[0]?.message ?? fallbackErrors[source],
       });
       return;
     }
