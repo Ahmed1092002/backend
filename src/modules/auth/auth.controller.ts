@@ -7,11 +7,10 @@ export const registerUser: RequestHandler = async (req, res) => {
   res.status(201).json({ data: user });
 };
 export const loginUser: RequestHandler = async (req, res) => {
-  // Implement login logic here
   const { email, password } = req.body as LoginInput;
   const user = await login(email, password);
   if (!user) {
-    res.status(401).json({ message: "Invalid email or password" });
+    res.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
