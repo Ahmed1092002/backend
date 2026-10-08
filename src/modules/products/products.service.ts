@@ -1,11 +1,6 @@
-import type { Product as PrismaProduct } from "@prisma/client";
 import { prisma } from "../../database/prisma.js";
-
-export type Product = {
-  id: string;
-  name: string;
-  price: number;
-};
+import type { ProductResponseDto } from "./products.dto.js";
+import { toProductResponseDto } from "./products.mapper.js";
 
 type CreateProductInput = {
   name: string;
@@ -17,38 +12,32 @@ type UpdateProductInput = {
   price?: number | undefined;
 };
 
-function toProduct(product: PrismaProduct): Product {
-  return {
-    id: product.id,
-    name: product.name,
-    price: product.price.toNumber(),
-  };
-}
-
-export async function listProducts(): Promise<Product[]> {
+export async function listProducts(): Promise<ProductResponseDto[]> {
   const products = await prisma.product.findMany({
     orderBy: { createdAt: "asc" },
   });
 
-  return products.map(toProduct);
+  return products.map(toProductResponseDto);
 }
 
-export async function findProductById(id: string): Promise<Product | undefined> {
+export async function findProductById(
+  id: string,
+): Promise<ProductResponseDto | undefined> {
   const product = await prisma.product.findUnique({ where: { id } });
-  return product ? toProduct(product) : undefined;
+  return product ? toProductResponseDto(product) : undefined;
 }
 
 export async function createProduct(
   input: CreateProductInput,
-): Promise<Product> {
+): Promise<ProductResponseDto> {
   const product = await prisma.product.create({ data: input });
-  return toProduct(product);
+  return toProductResponseDto(product);
 }
 
 export async function updateProductById(
   id: string,
   input: UpdateProductInput,
-): Promise<Product | undefined> {
+): Promise<ProductResponseDto | undefined> {
   const existingProduct = await prisma.product.findUnique({ where: { id } });
 
   if (!existingProduct) {
@@ -65,12 +54,12 @@ export async function updateProductById(
     data,
   });
 
-  return toProduct(product);
+  return toProductResponseDto(product);
 }
 
 export async function deleteProductById(
   id: string,
-): Promise<Product | undefined> {
+): Promise<ProductResponseDto | undefined> {
   const existingProduct = await prisma.product.findUnique({ where: { id } });
 
   if (!existingProduct) {
@@ -78,5 +67,5 @@ export async function deleteProductById(
   }
 
   const product = await prisma.product.delete({ where: { id } });
-  return toProduct(product);
+  return toProductResponseDto(product);
 }
