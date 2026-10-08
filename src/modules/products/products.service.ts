@@ -11,6 +11,11 @@ type CreateProductInput = {
   price: number;
 };
 
+type UpdateProductInput = {
+  name?: string | undefined;
+  price?: number | undefined;
+};
+
 const products: Product[] = [
   { id: "1", name: "Laptop", price: 1200 },
   { id: "2", name: "Keyboard", price: 80 },
@@ -31,5 +36,19 @@ export function createProduct(input: CreateProductInput): Product {
   };
 
   products.push(product);
+  return product;
+}
+
+export function updateProductById(
+  id: string,
+  input: UpdateProductInput,
+): Product | undefined {
+  const product = findProductById(id);
+
+  if (!product) {
+    return undefined;
+  }
+
+  Object.assign(product, input);
   return product;
 }
