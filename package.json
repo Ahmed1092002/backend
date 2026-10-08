@@ -11,6 +11,7 @@
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:check": "tsx src/scripts/check-db.ts",
+    "db:seed": "tsx src/scripts/seed-products.ts",
     "db:studio": "prisma studio"
   },
   "keywords": [],

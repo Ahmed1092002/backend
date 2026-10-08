@@ -1,4 +1,5 @@
-import { randomUUID } from "node:crypto";
+import type { Product as PrismaProduct } from "@prisma/client";
+import { prisma } from "../../database/prisma.js";
 
 export type Product = {
   id: string;
@@ -16,49 +17,66 @@ type UpdateProductInput = {
   price?: number | undefined;
 };
 
-const products: Product[] = [
-  { id: "1", name: "Laptop", price: 1200 },
-  { id: "2", name: "Keyboard", price: 80 },
-];
-
-export function listProducts(): Product[] {
-  return products;
-}
-
-export function findProductById(id: string): Product | undefined {
-  return products.find((product) => product.id === id);
-}
-
-export function createProduct(input: CreateProductInput): Product {
-  const product: Product = {
-    id: randomUUID(),
-    ...input,
+function toProduct(product: PrismaProduct): Product {
+  return {
+    id: product.id,
+    name: product.name,
+    price: product.price.toNumber(),
   };
-
-  products.push(product);
-  return product;
 }
 
-export function updateProductById(
+export async function listProducts(): Promise<Product[]> {
+  const products = await prisma.product.findMany({
+    orderBy: { createdAt: "asc" },
+  });
+
+  return products.map(toProduct);
+}
+
+export async function findProductById(id: string): Promise<Product | undefined> {
+  const product = await prisma.product.findUnique({ where: { id } });
+  return product ? toProduct(product) : undefined;
+}
+
+export async function createProduct(
+  input: CreateProductInput,
+): Promise<Product> {
+  const product = await prisma.product.create({ data: input });
+  return toProduct(product);
+}
+
+export async function updateProductById(
   id: string,
   input: UpdateProductInput,
-): Product | undefined {
-  const product = findProductById(id);
+): Promise<Product | undefined> {
+  const existingProduct = await prisma.product.findUnique({ where: { id } });
 
-  if (!product) {
+  if (!existingProduct) {
     return undefined;
   }
 
-  Object.assign(product, input);
-  return product;
+  const data = {
+    ...(input.name === undefined ? {} : { name: input.name }),
+    ...(input.price === undefined ? {} : { price: input.price }),
+  };
+
+  const product = await prisma.product.update({
+    where: { id },
+    data,
+  });
+
+  return toProduct(product);
 }
 
-export function deleteProductById(id: string): Product | undefined {
-  const index = products.findIndex((product) => product.id === id);
+export async function deleteProductById(
+  id: string,
+): Promise<Product | undefined> {
+  const existingProduct = await prisma.product.findUnique({ where: { id } });
 
-  if (index === -1) {
+  if (!existingProduct) {
     return undefined;
   }
 
-  return products.splice(index, 1)[0];
+  const product = await prisma.product.delete({ where: { id } });
+  return toProduct(product);
 }

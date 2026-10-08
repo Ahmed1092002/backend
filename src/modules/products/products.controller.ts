@@ -11,11 +11,11 @@ import type {
   UpdateProductInput,
 } from "./products.validation.js";
 
-export const getProducts: RequestHandler = (_req, res) => {
-  res.status(200).json({ data: listProducts() });
+export const getProducts: RequestHandler = async (_req, res) => {
+  res.status(200).json({ data: await listProducts() });
 };
 
-export const getProductById: RequestHandler = (req, res) => {
+export const getProductById: RequestHandler = async (req, res) => {
   const { id } = req.params;
 
   if (typeof id !== "string") {
@@ -23,7 +23,7 @@ export const getProductById: RequestHandler = (req, res) => {
     return;
   }
 
-  const product = findProductById(id);
+  const product = await findProductById(id);
 
   if (!product) {
     res.status(404).json({ error: "Product not found" });
@@ -33,12 +33,12 @@ export const getProductById: RequestHandler = (req, res) => {
   res.status(200).json({ data: product });
 };
 
-export const createProduct: RequestHandler = (req, res) => {
-  const product = createProductInService(req.body as CreateProductInput);
+export const createProduct: RequestHandler = async (req, res) => {
+  const product = await createProductInService(req.body as CreateProductInput);
   res.status(201).json({ data: product });
 };
 
-export const updateProduct: RequestHandler = (req, res) => {
+export const updateProduct: RequestHandler = async (req, res) => {
   const { id } = req.params;
 
   if (typeof id !== "string") {
@@ -46,7 +46,7 @@ export const updateProduct: RequestHandler = (req, res) => {
     return;
   }
 
-  const product = updateProductById(id, req.body as UpdateProductInput);
+  const product = await updateProductById(id, req.body as UpdateProductInput);
 
   if (!product) {
     res.status(404).json({ error: "Product not found" });
@@ -56,10 +56,10 @@ export const updateProduct: RequestHandler = (req, res) => {
   res.status(200).json({ data: product });
 };
 
-export const deleteProduct: RequestHandler = (req, res) => {
+export const deleteProduct: RequestHandler = async (req, res) => {
   const { id } = req.params;
 
-  if (typeof id !== "string" || !deleteProductById(id)) {
+  if (typeof id !== "string" || !(await deleteProductById(id))) {
     res.status(404).json({ error: "Product not found" });
     return;
   }
