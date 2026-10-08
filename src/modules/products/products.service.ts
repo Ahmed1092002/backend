@@ -15,7 +15,7 @@ type UpdateProductInput = {
 type ProductPageOptions = {
   offset: number;
   limit: number;
-  sortBy: "name" | "price" | "createdAt";
+  sortBy: "id" | "name" | "price" | "createdAt";
   sortOrder: "asc" | "desc";
   search?: string | undefined;
   minPrice?: number | undefined;

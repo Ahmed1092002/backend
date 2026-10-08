@@ -8,8 +8,10 @@ GET /products?sortBy=price&sortOrder=desc&page=1&limit=10
 
 ## Allowed values
 
-- `sortBy`: `name`, `price`, or `createdAt`.
+- `sortBy`: `id`, `name`, `price`, or `createdAt`; default is `id`.
 - `sortOrder`: `asc` or `desc`.
+
+When the client sends no sorting parameters, the API uses `id` ascending.
 
 ## Why validate sort fields?
 
