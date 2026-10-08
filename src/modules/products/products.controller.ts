@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 import {
   createProduct as createProductInService,
+  deleteProductById,
   findProductById,
   listProducts,
   updateProductById,
@@ -53,4 +54,15 @@ export const updateProduct: RequestHandler = (req, res) => {
   }
 
   res.status(200).json({ data: product });
+};
+
+export const deleteProduct: RequestHandler = (req, res) => {
+  const { id } = req.params;
+
+  if (typeof id !== "string" || !deleteProductById(id)) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  res.status(204).send();
 };

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { validateBody } from "../../middleware/validate-body.js";
 import {
   createProduct,
+  deleteProduct,
   getProductById,
   getProducts,
   updateProduct,
@@ -17,3 +18,4 @@ productsRouter.get("/", getProducts);
 productsRouter.get("/:id", getProductById);
 productsRouter.post("/", validateBody(createProductSchema), createProduct);
 productsRouter.patch("/:id", validateBody(updateProductSchema), updateProduct);
+productsRouter.delete("/:id", deleteProduct);

@@ -52,3 +52,13 @@ export function updateProductById(
   Object.assign(product, input);
   return product;
 }
+
+export function deleteProductById(id: string): Product | undefined {
+  const index = products.findIndex((product) => product.id === id);
+
+  if (index === -1) {
+    return undefined;
+  }
+
+  return products.splice(index, 1)[0];
+}
