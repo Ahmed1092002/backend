@@ -33,7 +33,22 @@ export const listProductsQuerySchema = z.object({
     .min(1, "limit must be 1 or greater")
     .max(100, "limit must be 100 or less")
     .default(20),
-});
+  search: z.string().trim().min(1, "search must not be empty").optional(),
+  minPrice: z.coerce
+    .number()
+    .min(0, "minPrice must be 0 or greater")
+    .optional(),
+  maxPrice: z.coerce
+    .number()
+    .min(0, "maxPrice must be 0 or greater")
+    .optional(),
+}).refine(
+  (query) =>
+    query.minPrice === undefined ||
+    query.maxPrice === undefined ||
+    query.minPrice <= query.maxPrice,
+  { message: "minPrice must be less than or equal to maxPrice" },
+);
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;

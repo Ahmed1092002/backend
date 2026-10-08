@@ -1,4 +1,5 @@
 import { prisma } from "../../database/prisma.js";
+import type { Prisma } from "@prisma/client";
 
 type CreateProductData = {
   name: string;
@@ -13,18 +14,42 @@ type UpdateProductData = {
 type ProductPageOptions = {
   offset: number;
   limit: number;
+  search?: string | undefined;
+  minPrice?: number | undefined;
+  maxPrice?: number | undefined;
 };
 
-export function findPage({ offset, limit }: ProductPageOptions) {
+function toWhere({
+  search,
+  minPrice,
+  maxPrice,
+}: ProductPageOptions): Prisma.ProductWhereInput {
+  const price = {
+    ...(minPrice === undefined ? {} : { gte: minPrice }),
+    ...(maxPrice === undefined ? {} : { lte: maxPrice }),
+  };
+
+  return {
+    ...(search === undefined
+      ? {}
+      : { name: { contains: search, mode: "insensitive" } }),
+    ...(Object.keys(price).length === 0 ? {} : { price }),
+  };
+}
+
+export function findPage(options: ProductPageOptions) {
+  const where = toWhere(options);
+
   return prisma.product.findMany({
     orderBy: { createdAt: "asc" },
-    skip: offset,
-    take: limit,
+    where,
+    skip: options.offset,
+    take: options.limit,
   });
 }
 
-export function count() {
-  return prisma.product.count();
+export function count(options: ProductPageOptions) {
+  return prisma.product.count({ where: toWhere(options) });
 }
 
 export function findById(id: string) {
