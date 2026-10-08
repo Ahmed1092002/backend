@@ -8,11 +8,18 @@ import {
 } from "./products.service.js";
 import type {
   CreateProductInput,
+  ListProductsQueryDto,
   UpdateProductInput,
 } from "./products.validation.js";
 
 export const getProducts: RequestHandler = async (_req, res) => {
-  res.status(200).json({ data: await listProducts() });
+  const { offset, limit } = res.locals.query as ListProductsQueryDto;
+  const { products, total } = await listProducts({ offset, limit });
+
+  res.status(200).json({
+    data: products,
+    meta: { total, offset, limit },
+  });
 };
 
 export const getProductById: RequestHandler = async (req, res) => {

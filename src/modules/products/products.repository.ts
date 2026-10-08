@@ -10,10 +10,21 @@ type UpdateProductData = {
   price?: number;
 };
 
-export function findAll() {
+type ProductPageOptions = {
+  offset: number;
+  limit: number;
+};
+
+export function findPage({ offset, limit }: ProductPageOptions) {
   return prisma.product.findMany({
     orderBy: { createdAt: "asc" },
+    skip: offset,
+    take: limit,
   });
+}
+
+export function count() {
+  return prisma.product.count();
 }
 
 export function findById(id: string) {

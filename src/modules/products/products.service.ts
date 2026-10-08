@@ -12,10 +12,29 @@ type UpdateProductInput = {
   price?: number | undefined;
 };
 
-export async function listProducts(): Promise<ProductResponseDto[]> {
-  const products = await productsRepository.findAll();
+type ProductPageOptions = {
+  offset: number;
+  limit: number;
+};
 
-  return products.map(toProductResponseDto);
+type ProductPage = {
+  products: ProductResponseDto[];
+  total: number;
+};
+
+export async function listProducts({
+  offset,
+  limit,
+}: ProductPageOptions): Promise<ProductPage> {
+  const [products, total] = await Promise.all([
+    productsRepository.findPage({ offset, limit }),
+    productsRepository.count(),
+  ]);
+
+  return {
+    products: products.map(toProductResponseDto),
+    total,
+  };
 }
 
 export async function findProductById(
