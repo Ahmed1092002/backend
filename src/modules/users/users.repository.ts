@@ -31,6 +31,10 @@ export function updateById(id: string, data: UpdateUserData) {
   });
 }
 
+export function deleteById(id: string) {
+  return prisma.user.delete({ where: { id } });
+}
+
 export function findByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } });
 }

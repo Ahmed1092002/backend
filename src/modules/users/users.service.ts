@@ -80,3 +80,16 @@ export async function updateUserById(
     throw error;
   }
 }
+
+export async function deleteUserById(
+  id: string,
+): Promise<UserResponseDto | undefined> {
+  const existingUser = await usersRepository.findById(id);
+
+  if (!existingUser) {
+    return undefined;
+  }
+
+  const user = await usersRepository.deleteById(id);
+  return toUserResponseDto(user);
+}

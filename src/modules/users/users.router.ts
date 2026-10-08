@@ -2,6 +2,7 @@ import { Router } from "express";
 import { validate } from "../../middleware/validate.js";
 import {
   createUser,
+  deleteUser,
   getUserByEmail,
   getUserById,
   getUsers,
@@ -24,4 +25,5 @@ usersRouter.get(
 usersRouter.get("/:id", getUserById);
 usersRouter.post("/", validate(createUserSchema), createUser);
 usersRouter.patch("/:id", validate(updateUserSchema), updateUser);
+usersRouter.delete("/:id", deleteUser);
 

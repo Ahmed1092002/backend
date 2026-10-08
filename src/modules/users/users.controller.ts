@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 import {
   createUser as createUserInService,
+  deleteUserById,
   findUserByEmail as findUserByEmailInService,
   findUserById,
   listUsers,
@@ -67,4 +68,15 @@ export const updateUser: RequestHandler = async (req, res) => {
   }
 
   res.status(200).json({ data: user });
+};
+
+export const deleteUser: RequestHandler = async (req, res) => {
+  const { id } = req.params;
+
+  if (typeof id !== "string" || !(await deleteUserById(id))) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.status(204).send();
 };
