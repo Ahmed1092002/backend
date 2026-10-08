@@ -1,6 +1,6 @@
-import { prisma } from "../../database/prisma.js";
 import type { ProductResponseDto } from "./products.dto.js";
 import { toProductResponseDto } from "./products.mapper.js";
+import * as productsRepository from "./products.repository.js";
 
 type CreateProductInput = {
   name: string;
@@ -13,9 +13,7 @@ type UpdateProductInput = {
 };
 
 export async function listProducts(): Promise<ProductResponseDto[]> {
-  const products = await prisma.product.findMany({
-    orderBy: { createdAt: "asc" },
-  });
+  const products = await productsRepository.findAll();
 
   return products.map(toProductResponseDto);
 }
@@ -23,14 +21,14 @@ export async function listProducts(): Promise<ProductResponseDto[]> {
 export async function findProductById(
   id: string,
 ): Promise<ProductResponseDto | undefined> {
-  const product = await prisma.product.findUnique({ where: { id } });
+  const product = await productsRepository.findById(id);
   return product ? toProductResponseDto(product) : undefined;
 }
 
 export async function createProduct(
   input: CreateProductInput,
 ): Promise<ProductResponseDto> {
-  const product = await prisma.product.create({ data: input });
+  const product = await productsRepository.create(input);
   return toProductResponseDto(product);
 }
 
@@ -38,7 +36,7 @@ export async function updateProductById(
   id: string,
   input: UpdateProductInput,
 ): Promise<ProductResponseDto | undefined> {
-  const existingProduct = await prisma.product.findUnique({ where: { id } });
+  const existingProduct = await productsRepository.findById(id);
 
   if (!existingProduct) {
     return undefined;
@@ -49,10 +47,7 @@ export async function updateProductById(
     ...(input.price === undefined ? {} : { price: input.price }),
   };
 
-  const product = await prisma.product.update({
-    where: { id },
-    data,
-  });
+  const product = await productsRepository.updateById(id, data);
 
   return toProductResponseDto(product);
 }
@@ -60,12 +55,12 @@ export async function updateProductById(
 export async function deleteProductById(
   id: string,
 ): Promise<ProductResponseDto | undefined> {
-  const existingProduct = await prisma.product.findUnique({ where: { id } });
+  const existingProduct = await productsRepository.findById(id);
 
   if (!existingProduct) {
     return undefined;
   }
 
-  const product = await prisma.product.delete({ where: { id } });
+  const product = await productsRepository.deleteById(id);
   return toProductResponseDto(product);
 }
