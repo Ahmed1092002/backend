@@ -1,18 +1,7 @@
-import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { RequestHandler } from "express";
 import type { ZodType } from "zod";
+import { validate } from "./validate.js";
 
 export function validateBody(schema: ZodType): RequestHandler {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const result = schema.safeParse(req.body);
-
-    if (!result.success) {
-      res.status(400).json({
-        error: result.error.issues[0]?.message ?? "Invalid request body",
-      });
-      return;
-    }
-
-    req.body = result.data;
-    next();
-  };
+  return validate(schema, "body", "Invalid request body");
 }
