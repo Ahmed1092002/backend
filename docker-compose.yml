@@ -19,7 +19,10 @@ services:
       - "3000:3000"
     depends_on:
       - postgres
+    volumes:
+        - upload_images:/app/uploads
 
 volumes:
   postgres_data:
+  upload_images:
   
