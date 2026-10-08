@@ -22,11 +22,11 @@ export const updateProductSchema = z
   });
 
 export const listProductsQuerySchema = z.object({
-  offset: z.coerce
+  page: z.coerce
     .number()
-    .int("offset must be a whole number")
-    .min(0, "offset must be 0 or greater")
-    .default(0),
+    .int("page must be a whole number")
+    .min(1, "page must be 1 or greater")
+    .default(1),
   limit: z.coerce
     .number()
     .int("limit must be a whole number")

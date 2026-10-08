@@ -7,7 +7,7 @@ Returning every product works for two rows, but becomes slow and expensive for t
 ## Endpoint
 
 ```text
-GET /products?offset=0&limit=20
+GET /products?page=1&limit=20
 ```
 
 ## Flow
@@ -15,7 +15,7 @@ GET /products?offset=0&limit=20
 ```text
 query string values (text)
   -> Zod converts and validates them
-  -> controller asks for one page
+  -> controller calculates offset: (page - 1) * limit
   -> repository uses Prisma skip/take
   -> PostgreSQL returns only that page
 ```
@@ -25,7 +25,7 @@ query string values (text)
 ```json
 {
   "data": [],
-  "meta": { "total": 2, "offset": 0, "limit": 20 }
+  "meta": { "total": 2, "page": 1, "limit": 20 }
 }
 ```
 
