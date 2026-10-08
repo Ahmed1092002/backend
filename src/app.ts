@@ -12,12 +12,6 @@ app.use((_req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 
-app.get("/", (_req, res) => {
-  res.status(200).json({
-    message: "Mini ERP API",
-  });
-});
-
 app.get("/health", (_req, res) => {
   res.status(200).json({
     status: "ok",
@@ -27,4 +21,9 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api", router);
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    message: "Mini ERP API",
+  });
+});
 app.use(errorHandler);
