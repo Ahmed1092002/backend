@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../middleware/async-handler.js";
 import { validate } from "../../middleware/validate.js";
 import {
   createUser,
@@ -16,14 +17,18 @@ import {
 
 export const usersRouter = Router();
 
-usersRouter.get("/", getUsers);
+usersRouter.get("/", asyncHandler(getUsers));
 usersRouter.get(
   "/email/:email",
   validate(findUserByEmailSchema, "params"),
-  getUserByEmail,
+  asyncHandler(getUserByEmail),
 );
-usersRouter.get("/:id", getUserById);
-usersRouter.post("/", validate(createUserSchema), createUser);
-usersRouter.patch("/:id", validate(updateUserSchema), updateUser);
-usersRouter.delete("/:id", deleteUser);
+usersRouter.get("/:id", asyncHandler(getUserById));
+usersRouter.post("/", validate(createUserSchema), asyncHandler(createUser));
+usersRouter.patch(
+  "/:id",
+  validate(updateUserSchema),
+  asyncHandler(updateUser),
+);
+usersRouter.delete("/:id", asyncHandler(deleteUser));
 

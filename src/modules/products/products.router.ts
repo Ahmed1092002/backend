@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../middleware/async-handler.js";
 import { validate } from "../../middleware/validate.js";
 import {
   createProduct,
@@ -15,8 +16,16 @@ import {
 
 export const productsRouter = Router();
 
-productsRouter.get("/", validate(listProductsQuerySchema, "query"), getProducts);
-productsRouter.get("/:id", getProductById);
-productsRouter.post("/", validate(createProductSchema), createProduct);
-productsRouter.patch("/:id", validate(updateProductSchema), updateProduct);
-productsRouter.delete("/:id", deleteProduct);
+productsRouter.get(
+  "/",
+  validate(listProductsQuerySchema, "query"),
+  asyncHandler(getProducts),
+);
+productsRouter.get("/:id", asyncHandler(getProductById));
+productsRouter.post("/", validate(createProductSchema), asyncHandler(createProduct));
+productsRouter.patch(
+  "/:id",
+  validate(updateProductSchema),
+  asyncHandler(updateProduct),
+);
+productsRouter.delete("/:id", asyncHandler(deleteProduct));
