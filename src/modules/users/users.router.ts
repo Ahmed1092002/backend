@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authenticate } from "../../middleware/authnticate.js";
 import { asyncHandler } from "../../middleware/async-handler.js";
 import { validate } from "../../middleware/validate.js";
 import {
@@ -17,7 +18,7 @@ import {
 
 export const usersRouter = Router();
 
-usersRouter.get("/", asyncHandler(getUsers));
+usersRouter.get("/", authenticate, asyncHandler(getUsers));
 usersRouter.get(
   "/email/:email",
   validate(findUserByEmailSchema, "params"),
