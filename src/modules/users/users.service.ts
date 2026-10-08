@@ -27,6 +27,18 @@ export async function createUser(
   }
 }
 
+export async function listUsers(): Promise<UserResponseDto[]> {
+  const users = await usersRepository.findAll();
+  return users.map(toUserResponseDto);
+}
+
+export async function findUserById(
+  id: string,
+): Promise<UserResponseDto | undefined> {
+  const user = await usersRepository.findById(id);
+  return user ? toUserResponseDto(user) : undefined;
+}
+
 export async function findUserByEmail(
   email: string,
 ): Promise<UserResponseDto | null> {

@@ -8,10 +8,6 @@ export const app = express();
 app.use(requestLogger);
 app.use(express.json());
 
-app.use((_req, res) => {
-  res.status(404).json({ error: "Route not found" });
-});
-
 app.get("/health", (_req, res) => {
   res.status(200).json({
     status: "ok",
@@ -26,4 +22,9 @@ app.get("/", (_req, res) => {
     message: "Mini ERP API",
   });
 });
+
+app.use((_req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
 app.use(errorHandler);
