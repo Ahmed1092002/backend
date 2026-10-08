@@ -3,6 +3,7 @@ import { prisma } from "../../database/prisma.js";
 type CreateUserData = {
   email: string;
   name: string;
+  passwordHash?: string;
 };
 
 type UpdateUserData = {
