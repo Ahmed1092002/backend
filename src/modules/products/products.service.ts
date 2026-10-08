@@ -15,6 +15,8 @@ type UpdateProductInput = {
 type ProductPageOptions = {
   offset: number;
   limit: number;
+  sortBy: "name" | "price" | "createdAt";
+  sortOrder: "asc" | "desc";
   search?: string | undefined;
   minPrice?: number | undefined;
   maxPrice?: number | undefined;
@@ -28,13 +30,31 @@ type ProductPage = {
 export async function listProducts({
   offset,
   limit,
+  sortBy,
+  sortOrder,
   search,
   minPrice,
   maxPrice,
 }: ProductPageOptions): Promise<ProductPage> {
   const [products, total] = await Promise.all([
-    productsRepository.findPage({ offset, limit, search, minPrice, maxPrice }),
-    productsRepository.count({ offset, limit, search, minPrice, maxPrice }),
+    productsRepository.findPage({
+      offset,
+      limit,
+      sortBy,
+      sortOrder,
+      search,
+      minPrice,
+      maxPrice,
+    }),
+    productsRepository.count({
+      offset,
+      limit,
+      sortBy,
+      sortOrder,
+      search,
+      minPrice,
+      maxPrice,
+    }),
   ]);
 
   return {

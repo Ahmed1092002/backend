@@ -13,12 +13,14 @@ import type {
 } from "./products.validation.js";
 
 export const getProducts: RequestHandler = async (_req, res) => {
-  const { page, limit, search, minPrice, maxPrice } = res.locals
+  const { page, limit, search, minPrice, maxPrice, sortBy, sortOrder } = res.locals
     .query as ListProductsQueryDto;
   const offset = (page - 1) * limit;
   const { products, total } = await listProducts({
     offset,
     limit,
+    sortBy,
+    sortOrder,
     search,
     minPrice,
     maxPrice,
@@ -26,7 +28,7 @@ export const getProducts: RequestHandler = async (_req, res) => {
 
   res.status(200).json({
     data: products,
-    meta: { total, page, limit },
+    meta: { total, page, limit, sortBy, sortOrder },
   });
 };
 

@@ -14,6 +14,8 @@ type UpdateProductData = {
 type ProductPageOptions = {
   offset: number;
   limit: number;
+  sortBy: "name" | "price" | "createdAt";
+  sortOrder: "asc" | "desc";
   search?: string | undefined;
   minPrice?: number | undefined;
   maxPrice?: number | undefined;
@@ -39,9 +41,14 @@ function toWhere({
 
 export function findPage(options: ProductPageOptions) {
   const where = toWhere(options);
+  const orderBy = {
+    name: { name: options.sortOrder },
+    price: { price: options.sortOrder },
+    createdAt: { createdAt: options.sortOrder },
+  }[options.sortBy];
 
   return prisma.product.findMany({
-    orderBy: { createdAt: "asc" },
+    orderBy,
     where,
     skip: options.offset,
     take: options.limit,

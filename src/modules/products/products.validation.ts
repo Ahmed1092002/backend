@@ -42,6 +42,8 @@ export const listProductsQuerySchema = z.object({
     .number()
     .min(0, "maxPrice must be 0 or greater")
     .optional(),
+  sortBy: z.enum(["name", "price", "createdAt"]).default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("asc"),
 }).refine(
   (query) =>
     query.minPrice === undefined ||
