@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { env } from "../../config/env.js";
 import { AppError } from "../../errors/app-error.js";
 import { toUserResponseDto } from "../users/users.mapper.js";
 import * as usersRepository from "../users/users.repository.js";
@@ -9,6 +11,11 @@ type RegisterInput = {
   email: string;
   name: string;
   password: string;
+};
+
+export type LoginResult = {
+  user: UserResponseDto;
+  accessToken: string;
 };
 
 export async function register(input: RegisterInput): Promise<UserResponseDto> {
@@ -36,7 +43,7 @@ export async function register(input: RegisterInput): Promise<UserResponseDto> {
 export async function login(
   email: string,
   password: string,
-): Promise<UserResponseDto | null> {
+): Promise<LoginResult | null> {
   const user = await usersRepository.findByEmail(email);
 
   if (!user || !user.passwordHash) {
@@ -48,5 +55,17 @@ export async function login(
     return null;
   }
 
-  return toUserResponseDto(user);
+  const accessToken = jwt.sign(
+    {
+      sub: user.id,
+      role: user.role,
+    },
+    env.jwtSecret,
+    { expiresIn: "15m" },
+  );
+
+  return {
+    user: toUserResponseDto(user),
+    accessToken,
+  };
 }

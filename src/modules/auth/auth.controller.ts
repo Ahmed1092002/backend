@@ -14,5 +14,8 @@ export const loginUser: RequestHandler = async (req, res) => {
     return;
   }
 
-  res.status(200).json({ message: "Login successful", data: user });
+  res.status(200).json({
+    message: "Login successful",
+    data: user,
+  });
 };
