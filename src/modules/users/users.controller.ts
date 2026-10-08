@@ -1,7 +1,16 @@
 import type { RequestHandler } from "express";
-import { createUser as createUserInService } from "./users.service.js";
-import { findUserById, listUsers } from "./users.service.js";
-import type { CreateUserInput } from "./users.validation.js";
+import {
+  createUser as createUserInService,
+  findUserByEmail as findUserByEmailInService,
+  findUserById,
+  listUsers,
+  updateUserById,
+} from "./users.service.js";
+import type {
+  CreateUserInput,
+  FindUserByEmailInput,
+  UpdateUserInput,
+} from "./users.validation.js";
 
 export const createUser: RequestHandler = async (req, res) => {
   const user = await createUserInService(req.body as CreateUserInput);
@@ -21,6 +30,36 @@ export const getUserById: RequestHandler = async (req, res) => {
   }
 
   const user = await findUserById(id);
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.status(200).json({ data: user });
+};
+
+export const getUserByEmail: RequestHandler = async (_req, res) => {
+  const { email } = res.locals.params as FindUserByEmailInput;
+  const user = await findUserByEmailInService(email);
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.status(200).json({ data: user });
+};
+
+export const updateUser: RequestHandler = async (req, res) => {
+  const { id } = req.params;
+
+  if (typeof id !== "string") {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const user = await updateUserById(id, req.body as UpdateUserInput);
 
   if (!user) {
     res.status(404).json({ error: "User not found" });

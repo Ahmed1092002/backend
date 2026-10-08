@@ -9,6 +9,11 @@ type CreateUserInput = {
   name: string;
 };
 
+type UpdateUserInput = {
+  email?: string | undefined;
+  name?: string | undefined;
+};
+
 export async function createUser(
   input: CreateUserInput,
 ): Promise<UserResponseDto> {
@@ -44,4 +49,34 @@ export async function findUserByEmail(
 ): Promise<UserResponseDto | null> {
   const user = await usersRepository.findByEmail(email);
   return user ? toUserResponseDto(user) : null;
+}
+
+export async function updateUserById(
+  id: string,
+  input: UpdateUserInput,
+): Promise<UserResponseDto | undefined> {
+  const existingUser = await usersRepository.findById(id);
+
+  if (!existingUser) {
+    return undefined;
+  }
+
+  const data = {
+    ...(input.email === undefined ? {} : { email: input.email }),
+    ...(input.name === undefined ? {} : { name: input.name }),
+  };
+
+  try {
+    const user = await usersRepository.updateById(id, data);
+    return toUserResponseDto(user);
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new AppError(409, "Email already exists");
+    }
+
+    throw error;
+  }
 }
