@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../middleware/authnticate.js";
 import { asyncHandler } from "../../middleware/async-handler.js";
+import { requireRole } from "../../middleware/requireRole.js";
 import { validate } from "../../middleware/validate.js";
 import {
   createUser,
@@ -31,5 +32,10 @@ usersRouter.patch(
   validate(updateUserSchema),
   asyncHandler(updateUser),
 );
-usersRouter.delete("/:id", asyncHandler(deleteUser));
+usersRouter.delete(
+  "/:id",
+  authenticate,
+  requireRole("ADMIN"),
+  asyncHandler(deleteUser),
+);
 

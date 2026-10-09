@@ -1,4 +1,5 @@
 import type { NextFunction, Response, Request } from "express";
+import { UserRole } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 
@@ -20,8 +21,24 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
   }
   try {
     const decoded = jwt.verify(token, env.jwtSecret);
+
+    if (
+      typeof decoded === "string" ||
+      typeof decoded.sub !== "string" ||
+      !Object.values(UserRole).includes(decoded.role as UserRole)
+    ) {
+      return res.status(401).json({ error: "Invalid token payload" });
+    }
+
+    // This data came from a verified, server-signed token.
+    // requireRole can safely read it in the next middleware.
+    res.locals.user = {
+      id: decoded.sub,
+      role: decoded.role as UserRole,
+    };
+
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 }
