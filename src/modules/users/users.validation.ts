@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UserRole } from "@prisma/client";
 
 export const createUserSchema = z.object({
   email: z.string().email("email must be valid"),
@@ -23,3 +24,9 @@ export const findUserByEmailSchema = z.object({
 });
 
 export type FindUserByEmailInput = z.infer<typeof findUserByEmailSchema>;
+
+export const updateUserRoleSchema = z.object({
+  role: z.enum(UserRole),
+});
+
+export type UpdateUserRoleInput = z.infer<typeof updateUserRoleSchema>;

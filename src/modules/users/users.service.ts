@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { AppError } from "../../errors/app-error.js";
 import type { UserResponseDto } from "./users.dto.js";
 import { toUserResponseDto } from "./users.mapper.js";
@@ -79,6 +79,20 @@ export async function updateUserById(
 
     throw error;
   }
+}
+
+export async function updateUserRoleById(
+  id: string,
+  role: UserRole,
+): Promise<{ id: string; role: UserRole } | undefined> {
+  const existingUser = await usersRepository.findById(id);
+
+  if (!existingUser) {
+    return undefined;
+  }
+
+  const user = await usersRepository.updateRoleById(id, role);
+  return { id: user.id, role: user.role };
 }
 
 export async function deleteUserById(

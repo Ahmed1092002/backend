@@ -6,11 +6,13 @@ import {
   findUserById,
   listUsers,
   updateUserById,
+  updateUserRoleById,
 } from "./users.service.js";
 import type {
   CreateUserInput,
   FindUserByEmailInput,
   UpdateUserInput,
+  UpdateUserRoleInput,
 } from "./users.validation.js";
 
 export const createUser: RequestHandler = async (req, res) => {
@@ -79,4 +81,23 @@ export const deleteUser: RequestHandler = async (req, res) => {
   }
 
   res.status(204).send();
+};
+
+export const updateUserRole: RequestHandler = async (req, res) => {
+  const { id } = req.params;
+
+  if (typeof id !== "string") {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const { role } = req.body as UpdateUserRoleInput;
+  const user = await updateUserRoleById(id, role);
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.status(200).json({ data: user });
 };

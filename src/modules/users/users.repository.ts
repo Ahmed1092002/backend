@@ -1,3 +1,4 @@
+import { UserRole } from "@prisma/client";
 import { prisma } from "../../database/prisma.js";
 
 type CreateUserData = {
@@ -29,6 +30,13 @@ export function updateById(id: string, data: UpdateUserData) {
   return prisma.user.update({
     where: { id },
     data,
+  });
+}
+
+export function updateRoleById(id: string, role: UserRole) {
+  return prisma.user.update({
+    where: { id },
+    data: { role },
   });
 }
 

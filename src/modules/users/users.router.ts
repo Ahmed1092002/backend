@@ -10,11 +10,13 @@ import {
   getUserById,
   getUsers,
   updateUser,
+  updateUserRole,
 } from "./users.controller.js";
 import {
   createUserSchema,
   findUserByEmailSchema,
   updateUserSchema,
+  updateUserRoleSchema,
 } from "./users.validation.js";
 
 export const usersRouter = Router();
@@ -31,6 +33,13 @@ usersRouter.patch(
   "/:id",
   validate(updateUserSchema),
   asyncHandler(updateUser),
+);
+usersRouter.patch(
+  "/:id/role",
+  authenticate,
+  requireRole("ADMIN"),
+  validate(updateUserRoleSchema),
+  asyncHandler(updateUserRole),
 );
 usersRouter.delete(
   "/:id",
