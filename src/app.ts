@@ -1,7 +1,9 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
+import { openApiDocument } from "./docs/openapi.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
 import { uploadsDirectory } from "./middleware/upload-image.js";
@@ -19,6 +21,7 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 app.use("/uploads", express.static(uploadsDirectory));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 app.get("/health", (_req, res) => {
   res.status(200).json({

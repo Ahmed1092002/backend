@@ -35,6 +35,11 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: "no"
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
   api:
     build:
       context: .
@@ -45,6 +50,8 @@ services:
       DATABASE_URL: postgresql://erp_user:erp_password@postgres:5432/mini_erp?schema=public
       JWT_SECRET: local-development-only-replace-with-a-random-secret-before-production
       CLIENT_ORIGIN: http://localhost:5173
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,6 +59,8 @@ services:
         condition: service_completed_successfully
       seed:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     volumes:
       - upload_images:/app/uploads
 volumes:

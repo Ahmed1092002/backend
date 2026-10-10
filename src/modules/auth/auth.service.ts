@@ -8,6 +8,7 @@ import { toUserResponseDto } from "../users/users.mapper.js";
 import * as usersRepository from "../users/users.repository.js";
 import type { UserResponseDto } from "../users/users.dto.js";
 import * as authRepository from "./auth.repository.js";
+import { sendWelcomeEmail } from "./email.service.js";
 
 type RegisterInput = {
   email: string;
@@ -61,6 +62,12 @@ export async function register(input: RegisterInput): Promise<UserResponseDto> {
       name: input.name,
       passwordHash,
     });
+
+    try {
+      await sendWelcomeEmail(user.name, user.email);
+    } catch (error) {
+      console.error("Welcome email failed", error);
+    }
 
     return toUserResponseDto(user);
   } catch (error) {
