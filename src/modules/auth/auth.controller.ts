@@ -1,4 +1,5 @@
 import type { RequestHandler } from "express";
+import { findUserById } from "../users/users.service.js";
 import { refreshCookieOptions } from "./auth.cookies.js";
 import { login, logout, refresh, register } from "./auth.service.js";
 import type { LoginInput, RegisterInput } from "./auth.validation.js";
@@ -60,4 +61,16 @@ export const logoutUser: RequestHandler = async (req, res) => {
 
   res.clearCookie("refreshToken", refreshCookieOptions);
   res.status(204).send();
+};
+
+export const getCurrentUser: RequestHandler = async (_req, res) => {
+  const userId = res.locals.user.id as string;
+  const user = await findUserById(userId);
+
+  if (!user) {
+    res.status(401).json({ error: "User no longer exists" });
+    return;
+  }
+
+  res.status(200).json({ data: user });
 };
