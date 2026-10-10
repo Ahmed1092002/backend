@@ -8,5 +8,6 @@ export function toProductResponseDto(
     id: product.id,
     name: product.name,
     price: product.price.toNumber(),
+    imageUrl: product.imagePath,
   };
 }

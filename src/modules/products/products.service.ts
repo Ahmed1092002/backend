@@ -97,6 +97,20 @@ export async function updateProductById(
   return toProductResponseDto(product);
 }
 
+export async function setProductImage(
+  id: string,
+  imagePath: string,
+): Promise<ProductResponseDto | undefined> {
+  const existingProduct = await productsRepository.findById(id);
+
+  if (!existingProduct) {
+    return undefined;
+  }
+
+  const product = await productsRepository.updateById(id, { imagePath });
+  return toProductResponseDto(product);
+}
+
 export async function deleteProductById(
   id: string,
 ): Promise<ProductResponseDto | undefined> {

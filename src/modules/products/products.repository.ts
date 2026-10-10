@@ -9,6 +9,7 @@ type CreateProductData = {
 type UpdateProductData = {
   name?: string;
   price?: number;
+  imagePath?: string;
 };
 
 type ProductPageOptions = {

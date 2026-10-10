@@ -1,11 +1,15 @@
 import { Router } from "express";
+import { authenticate } from "../../middleware/authnticate.js";
 import { asyncHandler } from "../../middleware/async-handler.js";
+import { requireRole } from "../../middleware/requireRole.js";
+import { uploadProductImage } from "../../middleware/upload-image.js";
 import { validate } from "../../middleware/validate.js";
 import {
   createProduct,
   deleteProduct,
   getProductById,
   getProducts,
+  uploadImage,
   updateProduct,
 } from "./products.controller.js";
 import {
@@ -27,5 +31,12 @@ productsRouter.patch(
   "/:id",
   validate(updateProductSchema),
   asyncHandler(updateProduct),
+);
+productsRouter.post(
+  "/:id/image",
+  authenticate,
+  requireRole("ADMIN", "MANAGER"),
+  uploadProductImage,
+  asyncHandler(uploadImage),
 );
 productsRouter.delete("/:id", asyncHandler(deleteProduct));

@@ -4,6 +4,7 @@ import {
   deleteProductById,
   findProductById,
   listProducts,
+  setProductImage,
   updateProductById,
 } from "./products.service.js";
 import type {
@@ -82,4 +83,27 @@ export const deleteProduct: RequestHandler = async (req, res) => {
   }
 
   res.status(204).send();
+};
+
+export const uploadImage: RequestHandler = async (req, res) => {
+  const { id } = req.params;
+
+  if (typeof id !== "string") {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  if (!req.file) {
+    res.status(400).json({ error: "Image file is required" });
+    return;
+  }
+
+  const product = await setProductImage(id, `/uploads/${req.file.filename}`);
+
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  res.status(200).json({ data: product });
 };

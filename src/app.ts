@@ -4,6 +4,7 @@ import express from "express";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
+import { uploadsDirectory } from "./middleware/upload-image.js";
 import { router } from "./router/router.js";
 
 export const app = express();
@@ -17,6 +18,7 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
+app.use("/uploads", express.static(uploadsDirectory));
 
 app.get("/health", (_req, res) => {
   res.status(200).json({
