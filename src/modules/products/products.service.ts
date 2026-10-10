@@ -1,6 +1,7 @@
 import type { ProductResponseDto } from "./products.dto.js";
 import { toProductResponseDto } from "./products.mapper.js";
 import * as productsRepository from "./products.repository.js";
+import { clearProductCache, getCache, setCache } from "../../cache/redis.js";
 
 type CreateProductInput = {
   name: string;
@@ -36,6 +37,9 @@ export async function listProducts({
   minPrice,
   maxPrice,
 }: ProductPageOptions): Promise<ProductPage> {
+  const cacheKey = `products:${JSON.stringify({ offset, limit, sortBy, sortOrder, search, minPrice, maxPrice })}`;
+  const cached = await getCache<ProductPage>(cacheKey);
+  if (cached) return cached;
   const [products, total] = await Promise.all([
     productsRepository.findPage({
       offset,
@@ -57,10 +61,12 @@ export async function listProducts({
     }),
   ]);
 
-  return {
+  const result = {
     products: products.map(toProductResponseDto),
     total,
   };
+  await setCache(cacheKey, result, 60);
+  return result;
 }
 
 export async function findProductById(
@@ -74,6 +80,7 @@ export async function createProduct(
   input: CreateProductInput,
 ): Promise<ProductResponseDto> {
   const product = await productsRepository.create(input);
+  await clearProductCache();
   return toProductResponseDto(product);
 }
 
@@ -93,6 +100,7 @@ export async function updateProductById(
   };
 
   const product = await productsRepository.updateById(id, data);
+  await clearProductCache();
 
   return toProductResponseDto(product);
 }
@@ -108,6 +116,7 @@ export async function setProductImage(
   }
 
   const product = await productsRepository.updateById(id, { imagePath });
+  await clearProductCache();
   return toProductResponseDto(product);
 }
 
@@ -121,5 +130,6 @@ export async function deleteProductById(
   }
 
   const product = await productsRepository.deleteById(id);
+  await clearProductCache();
   return toProductResponseDto(product);
 }

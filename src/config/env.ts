@@ -12,4 +12,5 @@ export const env = {
   isProduction: process.env.NODE_ENV === "production",
   mailHost: process.env.MAIL_HOST ?? "localhost",
   mailPort: Number(process.env.MAIL_PORT ?? 1025),
+  redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
 };
