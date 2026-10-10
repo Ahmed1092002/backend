@@ -1,4 +1,5 @@
 import { authPaths } from "./auth.docs.js";
+import { productPaths } from "./products.docs.js";
 
 export const openApiDocument = {
   openapi: "3.0.3",
@@ -25,5 +26,6 @@ export const openApiDocument = {
       },
     },
     ...authPaths,
+    ...productPaths,
   },
 };
