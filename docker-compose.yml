@@ -68,6 +68,18 @@ services:
         condition: service_started
     volumes:
       - upload_images:/app/uploads
+  worker:
+    build: .
+    command: npx tsx src/workers/email.worker.ts
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_started
+      mailpit:
+        condition: service_started
 volumes:
   postgres_data:
   upload_images:
