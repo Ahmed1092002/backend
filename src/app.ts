@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
+import { prisma } from "./database/prisma.js";
 import { openApiDocument } from "./docs/openapi.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
@@ -29,6 +30,21 @@ app.get("/health", (_req, res) => {
     service: "mini-erp",
     timestamp: new Date().toISOString(),
   });
+});
+
+app.get("/health/ready", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({
+      status: "ready",
+      database: "connected",
+    });
+  } catch {
+    res.status(503).json({
+      status: "not ready",
+      database: "unavailable",
+    });
+  }
 });
 
 app.use("/api", router);
