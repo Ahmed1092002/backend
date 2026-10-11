@@ -2,6 +2,7 @@ import type { ProductResponseDto } from "./products.dto.js";
 import { toProductResponseDto } from "./products.mapper.js";
 import * as productsRepository from "./products.repository.js";
 import { clearProductCache, getCache, setCache } from "../../cache/redis.js";
+import { emitProductEvent } from "../../realtime/socket.js";
 
 type CreateProductInput = {
   name: string;
@@ -81,7 +82,9 @@ export async function createProduct(
 ): Promise<ProductResponseDto> {
   const product = await productsRepository.create(input);
   await clearProductCache();
-  return toProductResponseDto(product);
+  const result = toProductResponseDto(product);
+  emitProductEvent("product:created", result);
+  return result;
 }
 
 export async function updateProductById(
@@ -102,7 +105,9 @@ export async function updateProductById(
   const product = await productsRepository.updateById(id, data);
   await clearProductCache();
 
-  return toProductResponseDto(product);
+  const result = toProductResponseDto(product);
+  emitProductEvent("product:updated", result);
+  return result;
 }
 
 export async function setProductImage(
@@ -117,7 +122,9 @@ export async function setProductImage(
 
   const product = await productsRepository.updateById(id, { imagePath });
   await clearProductCache();
-  return toProductResponseDto(product);
+  const result = toProductResponseDto(product);
+  emitProductEvent("product:updated", result);
+  return result;
 }
 
 export async function deleteProductById(
@@ -131,5 +138,7 @@ export async function deleteProductById(
 
   const product = await productsRepository.deleteById(id);
   await clearProductCache();
-  return toProductResponseDto(product);
+  const result = toProductResponseDto(product);
+  emitProductEvent("product:deleted", result);
+  return result;
 }
