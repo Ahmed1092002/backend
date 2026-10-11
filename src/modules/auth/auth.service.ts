@@ -64,7 +64,7 @@ export async function register(input: RegisterInput): Promise<UserResponseDto> {
     });
 
     try {
-      await queueWelcomeEmail(user.name, user.email);
+      await queueWelcomeEmail(user.id, user.name, user.email);
     } catch (error) {
       console.error("Welcome email failed", error);
     }
