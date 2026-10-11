@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # Tests do not log in or connect to PostgreSQL; Prisma still needs this
+      # valid-looking URL while TypeScript and generated client are checked.
+      DATABASE_URL: postgresql://erp_user:erp_password@localhost:5432/mini_erp?schema=public
+      JWT_SECRET: ci-only-secret-not-for-production
+
+    steps:
+      - name: Get the project code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
