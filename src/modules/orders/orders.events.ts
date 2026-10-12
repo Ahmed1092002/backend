@@ -20,9 +20,8 @@ export function onOrderConfirmed(listener: OrderConfirmedListener) {
 }
 
 export async function publishOrderConfirmed(event: OrderConfirmedEvent) {
-  await Promise.all(
-    [...orderConfirmedListeners].map((listener) => listener(event)),
-  );
-
-  
+  // Run listeners in registration order: cache → real-time → email.
+  for (const listener of orderConfirmedListeners) {
+    await listener(event);
+  }
 }
