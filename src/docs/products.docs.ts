@@ -57,4 +57,20 @@ export const productPaths = {
       },
     },
   },
+  "/api/products/{id}/stock-movements": {
+    get: {
+      summary: "List stock movement history for a product",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        productIdParameter,
+        { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+        { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+      ],
+      responses: {
+        "200": { description: "Paginated stock movements" },
+        "403": { description: "Requires ADMIN or MANAGER" },
+        "404": { description: "Product not found" },
+      },
+    },
+  },
 };

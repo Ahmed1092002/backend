@@ -62,6 +62,39 @@ exercise. We will not replace this project database merely to learn MongoDB.
 7. CI/CD and deployment
 8. Deno overview as an optional comparison with Node.js
 
+## Advanced backend path (priority after the current inventory flow)
+
+The Mini ERP is our practice application. The goal is not merely to finish ERP
+features; it is to use it to learn production backend and distributed-systems
+skills in this order:
+
+1. **Architecture**
+   - Clean module boundaries and dependency direction
+   - Dependency injection concepts in Node.js
+   - Domain events and event-driven design inside a modular monolith
+   - When a modular monolith is enough, and when microservices are justified
+2. **Database performance and correctness**
+   - Indexes and reading query plans
+   - Transactions, isolation, row locking, and race conditions
+   - Pagination and avoiding N+1 queries
+   - Redis caching and cache invalidation trade-offs
+3. **Reliable distributed systems**
+   - Idempotency keys for requests such as order creation
+   - Retries, backoff, dead-letter queues, and failure recovery
+   - Background workers and exactly-once versus at-least-once delivery
+4. **Production engineering**
+   - Structured logs, correlation/request IDs, error tracking, and metrics
+   - Health/readiness checks and graceful shutdown
+   - CI/CD deeper concepts and deployment when cloud access is available
+5. **Service communication and real-time systems**
+   - REST compared with GraphQL and gRPC
+   - RabbitMQ compared with Kafka: queues, events, consumer groups, and use cases
+   - Socket.IO/WebSockets compared with WebRTC
+   - Reverse proxies, load balancers, HTTPS, and scaling multiple API instances
+
+We will learn RabbitMQ and Kafka through small isolated exercises first; we
+will not add both technologies to the Mini ERP without a real reason.
+
 ## Immediate next step
 
 Start Docker Desktop, then apply the `RefreshToken` migration. Next, we will

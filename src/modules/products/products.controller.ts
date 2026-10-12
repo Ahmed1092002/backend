@@ -7,12 +7,14 @@ import {
   setProductImage,
   updateProductById,
   adjustProductStock,
+  listProductStockMovements,
 } from "./products.service.js";
 import type {
   CreateProductInput,
   ListProductsQueryDto,
   UpdateProductInput,
   AdjustProductStockInput,
+  StockMovementsQueryDto,
 } from "./products.validation.js";
 
 export const getProducts: RequestHandler = async (_req, res) => {
@@ -131,4 +133,29 @@ export const adjustStock: RequestHandler = async (req, res) => {
   }
 
   res.status(200).json({ data: product });
+};
+
+export const getStockMovements: RequestHandler = async (req, res) => {
+  const { id } = req.params;
+  const { page, limit } = res.locals.query as StockMovementsQueryDto;
+
+  if (typeof id !== "string") {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const result = await listProductStockMovements(id, {
+    offset: (page - 1) * limit,
+    limit,
+  });
+
+  if (!result) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  res.status(200).json({
+    data: result.movements,
+    meta: { total: result.total, page, limit },
+  });
 };

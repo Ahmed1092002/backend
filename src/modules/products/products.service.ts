@@ -33,6 +33,17 @@ type ProductPage = {
   total: number;
 };
 
+type StockMovementPage = {
+  movements: {
+    id: string;
+    delta: number;
+    note: string | null;
+    actorId: string;
+    createdAt: Date;
+  }[];
+  total: number;
+};
+
 export async function listProducts({
   offset,
   limit,
@@ -150,7 +161,7 @@ export async function deleteProductById(
 
 export async function adjustProductStock(
   id: string,
-  input: { delta: number; note?: string },
+  input: { delta: number; note?: string | undefined },
   actorId: string,
 ): Promise<ProductResponseDto | undefined> {
   const product = await prisma.$transaction(async (tx) => {
@@ -170,7 +181,12 @@ export async function adjustProductStock(
 
     const updatedProduct = await tx.product.findUniqueOrThrow({ where: { id } });
     await tx.inventoryMovement.create({
-      data: { productId: id, delta: input.delta, note: input.note, actorId },
+      data: {
+        productId: id,
+        delta: input.delta,
+        ...(input.note === undefined ? {} : { note: input.note }),
+        actorId,
+      },
     });
     return updatedProduct;
   });
@@ -181,4 +197,28 @@ export async function adjustProductStock(
   const result = toProductResponseDto(product);
   emitProductEvent("product:updated", result);
   return result;
+}
+
+export async function listProductStockMovements(
+  productId: string,
+  { offset, limit }: { offset: number; limit: number },
+): Promise<StockMovementPage | undefined> {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { id: true },
+  });
+
+  if (!product) return undefined;
+
+  const [movements, total] = await Promise.all([
+    prisma.inventoryMovement.findMany({
+      where: { productId },
+      orderBy: { createdAt: "desc" },
+      skip: offset,
+      take: limit,
+    }),
+    prisma.inventoryMovement.count({ where: { productId } }),
+  ]);
+
+  return { movements, total };
 }
