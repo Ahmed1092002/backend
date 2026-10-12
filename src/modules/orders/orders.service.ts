@@ -1,7 +1,11 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type Product } from "@prisma/client";
 import { prisma } from "../../database/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { clearProductCache } from "../../cache/redis.js";
+import {
+  emitProductEvent,
+  emitUserNotification,
+} from "../../realtime/socket.js";
 import type { OrderResponseDto } from "./orders.dto.js";
 import type { CreateOrderInput } from "./orders.validation.js";
 
@@ -19,6 +23,16 @@ function toOrderResponseDto(order: Prisma.OrderGetPayload<{ include: { items: tr
       unitPrice: item.unitPrice.toNumber(),
       quantity: item.quantity,
     })),
+  };
+}
+
+function toProductEventPayload(product: Product) {
+  return {
+    id: product.id,
+    name: product.name,
+    price: product.price.toNumber(),
+    stock: product.stock,
+    imageUrl: product.imagePath,
   };
 }
 
@@ -63,7 +77,7 @@ export async function confirmOrder(
   orderId: string,
   actorId: string,
 ): Promise<OrderResponseDto | undefined> {
-  const order = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const orderToConfirm = await tx.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -80,6 +94,7 @@ export async function confirmOrder(
     const sortedItems = [...orderToConfirm.items].sort((a, b) =>
       a.productId.localeCompare(b.productId),
     );
+    const changedProducts: Product[] = [];
 
     for (const item of sortedItems) {
       const updated = await tx.product.updateMany({
@@ -102,17 +117,31 @@ export async function confirmOrder(
           actorId,
         },
       });
+
+      changedProducts.push(
+        await tx.product.findUniqueOrThrow({ where: { id: item.productId } }),
+      );
     }
 
-    return tx.order.update({
+    const confirmedOrder = await tx.order.update({
       where: { id: orderId },
       data: { status: "CONFIRMED" },
       include: { items: true },
     });
+
+    return { order: confirmedOrder, changedProducts };
   });
 
-  if (!order) return undefined;
+  if (!result) return undefined;
 
   await clearProductCache();
-  return toOrderResponseDto(order);
+  for (const product of result.changedProducts) {
+    emitProductEvent("product:updated", toProductEventPayload(product));
+  }
+  emitUserNotification(result.order.createdById, {
+    title: "Order confirmed",
+    message: `Order ${result.order.id} was confirmed.`,
+  });
+
+  return toOrderResponseDto(result.order);
 }
