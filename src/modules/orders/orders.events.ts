@@ -22,6 +22,12 @@ export function onOrderConfirmed(listener: OrderConfirmedListener) {
 export async function publishOrderConfirmed(event: OrderConfirmedEvent) {
   // Run listeners in registration order: cache → real-time → email.
   for (const listener of orderConfirmedListeners) {
-    await listener(event);
+    try {
+      await listener(event);
+    } catch (error) {
+      // The database transaction already succeeded. A non-critical side effect
+      // such as Socket.IO or an alert must not make order confirmation fail.
+      console.error("OrderConfirmed listener failed", error);
+    }
   }
 }
