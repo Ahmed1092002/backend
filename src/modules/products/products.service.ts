@@ -3,6 +3,8 @@ import { toProductResponseDto } from "./products.mapper.js";
 import * as productsRepository from "./products.repository.js";
 import { clearProductCache, getCache, setCache } from "../../cache/redis.js";
 import { emitProductEvent } from "../../realtime/socket.js";
+import { prisma } from "../../database/prisma.js";
+import { AppError } from "../../errors/app-error.js";
 
 type CreateProductInput = {
   name: string;
@@ -143,5 +145,40 @@ export async function deleteProductById(
   await clearProductCache();
   const result = toProductResponseDto(product);
   emitProductEvent("product:deleted", result);
+  return result;
+}
+
+export async function adjustProductStock(
+  id: string,
+  input: { delta: number; note?: string },
+  actorId: string,
+): Promise<ProductResponseDto | undefined> {
+  const product = await prisma.$transaction(async (tx) => {
+    const updated = await tx.product.updateMany({
+      where: {
+        id,
+        ...(input.delta < 0 ? { stock: { gte: -input.delta } } : {}),
+      },
+      data: { stock: { increment: input.delta } },
+    });
+
+    if (updated.count === 0) {
+      const exists = await tx.product.findUnique({ where: { id } });
+      if (!exists) return undefined;
+      throw new AppError(409, "Stock cannot become negative");
+    }
+
+    const updatedProduct = await tx.product.findUniqueOrThrow({ where: { id } });
+    await tx.inventoryMovement.create({
+      data: { productId: id, delta: input.delta, note: input.note, actorId },
+    });
+    return updatedProduct;
+  });
+
+  if (!product) return undefined;
+
+  await clearProductCache();
+  const result = toProductResponseDto(product);
+  emitProductEvent("product:updated", result);
   return result;
 }

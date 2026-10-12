@@ -24,6 +24,14 @@ export const updateProductSchema = z
     message: "At least one product field must be provided",
   });
 
+export const adjustProductStockSchema = z.object({
+  delta: z
+    .number()
+    .int("delta must be a whole number")
+    .refine((value) => value !== 0, "delta must not be zero"),
+  note: z.string().trim().min(1).max(500).optional(),
+});
+
 export const listProductsQuerySchema = z.object({
   page: z.coerce
     .number()
@@ -57,4 +65,5 @@ export const listProductsQuerySchema = z.object({
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+export type AdjustProductStockInput = z.infer<typeof adjustProductStockSchema>;
 export type ListProductsQueryDto = z.infer<typeof listProductsQuerySchema>;

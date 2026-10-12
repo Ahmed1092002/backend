@@ -11,11 +11,13 @@ import {
   getProducts,
   uploadImage,
   updateProduct,
+  adjustStock,
 } from "./products.controller.js";
 import {
   createProductSchema,
   listProductsQuerySchema,
   updateProductSchema,
+  adjustProductStockSchema,
 } from "./products.validation.js";
 
 export const productsRouter = Router();
@@ -31,6 +33,13 @@ productsRouter.patch(
   "/:id",
   validate(updateProductSchema),
   asyncHandler(updateProduct),
+);
+productsRouter.post(
+  "/:id/stock-adjustments",
+  authenticate,
+  requireRole("ADMIN", "MANAGER"),
+  validate(adjustProductStockSchema),
+  asyncHandler(adjustStock),
 );
 productsRouter.post(
   "/:id/image",

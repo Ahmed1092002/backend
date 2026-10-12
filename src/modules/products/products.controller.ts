@@ -6,11 +6,13 @@ import {
   listProducts,
   setProductImage,
   updateProductById,
+  adjustProductStock,
 } from "./products.service.js";
 import type {
   CreateProductInput,
   ListProductsQueryDto,
   UpdateProductInput,
+  AdjustProductStockInput,
 } from "./products.validation.js";
 
 export const getProducts: RequestHandler = async (_req, res) => {
@@ -99,6 +101,29 @@ export const uploadImage: RequestHandler = async (req, res) => {
   }
 
   const product = await setProductImage(id, `/uploads/${req.file.filename}`);
+
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  res.status(200).json({ data: product });
+};
+
+export const adjustStock: RequestHandler = async (req, res) => {
+  const { id } = req.params;
+  const user = res.locals.user as { id: string } | undefined;
+
+  if (typeof id !== "string") {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const product = await adjustProductStock(
+    id,
+    req.body as AdjustProductStockInput,
+    user!.id,
+  );
 
   if (!product) {
     res.status(404).json({ error: "Product not found" });

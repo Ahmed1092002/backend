@@ -30,4 +30,31 @@ export const productPaths = {
   "/api/products/{id}/image": {
     post: { summary: "Upload a product image", security: [{ bearerAuth: [] }], parameters: [productIdParameter], requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["image"], properties: { image: { type: "string", format: "binary" } } } } } }, responses: { "200": { description: "Image uploaded" }, "403": { description: "Requires ADMIN or MANAGER" } } },
   },
+  "/api/products/{id}/stock-adjustments": {
+    post: {
+      summary: "Adjust product stock and record the movement",
+      security: [{ bearerAuth: [] }],
+      parameters: [productIdParameter],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["delta"],
+              properties: {
+                delta: { type: "integer", example: -2 },
+                note: { type: "string", example: "Sold at counter" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        "200": { description: "Stock adjusted" },
+        "403": { description: "Requires ADMIN or MANAGER" },
+        "409": { description: "Adjustment would make stock negative" },
+      },
+    },
+  },
 };
