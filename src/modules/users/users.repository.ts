@@ -48,3 +48,10 @@ export function findByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } });
 }
 
+export function findInventoryAlertRecipients() {
+  return prisma.user.findMany({
+    where: { role: { in: [UserRole.ADMIN, UserRole.MANAGER] } },
+    select: { email: true },
+  });
+}
+

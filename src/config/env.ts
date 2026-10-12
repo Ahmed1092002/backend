@@ -13,4 +13,5 @@ export const env = {
   mailHost: process.env.MAIL_HOST ?? "localhost",
   mailPort: Number(process.env.MAIL_PORT ?? 1025),
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+  lowStockThreshold: Number(process.env.LOW_STOCK_THRESHOLD ?? 5),
 };

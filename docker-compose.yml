@@ -55,6 +55,7 @@ services:
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
       REDIS_URL: redis://redis:6379
+      LOW_STOCK_THRESHOLD: 5
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,6 +73,7 @@ services:
     build: .
     command: npx tsx src/workers/email.worker.ts
     environment:
+      JWT_SECRET: local-development-only-replace-with-a-random-secret-before-production
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
       REDIS_URL: redis://redis:6379
