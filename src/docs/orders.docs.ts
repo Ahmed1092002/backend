@@ -50,4 +50,19 @@ export const orderPaths = {
       },
     },
   },
+  "/api/orders/{id}/invoice": {
+    get: {
+      summary: "Download a PDF invoice for a confirmed order",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+      ],
+      responses: {
+        "200": { description: "PDF invoice", content: { "application/pdf": {} } },
+        "403": { description: "Requires ADMIN or MANAGER" },
+        "404": { description: "Order not found" },
+        "409": { description: "Order is not confirmed" },
+      },
+    },
+  },
 };

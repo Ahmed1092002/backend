@@ -177,3 +177,19 @@ export async function confirmOrder(
 
   return toOrderResponseDto(result.order);
 }
+
+export async function findConfirmedOrderById(
+  orderId: string,
+): Promise<OrderResponseDto | undefined> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  });
+
+  if (!order) return undefined;
+  if (order.status !== "CONFIRMED") {
+    throw new AppError(409, "An invoice is available only for confirmed orders");
+  }
+
+  return toOrderResponseDto(order);
+}
