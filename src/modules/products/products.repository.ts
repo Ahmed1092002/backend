@@ -4,11 +4,13 @@ import type { Prisma } from "@prisma/client";
 type CreateProductData = {
   name: string;
   price: number;
+  stock: number;
 };
 
 type UpdateProductData = {
   name?: string;
   price?: number;
+  stock?: number;
   imagePath?: string;
 };
 

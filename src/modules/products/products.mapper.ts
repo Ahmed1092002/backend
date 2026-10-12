@@ -8,6 +8,7 @@ export function toProductResponseDto(
     id: product.id,
     name: product.name,
     price: product.price.toNumber(),
+    stock: product.stock,
     imageUrl: product.imagePath,
   };
 }

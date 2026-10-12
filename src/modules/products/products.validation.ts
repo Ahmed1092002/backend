@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const invalidPriceMessage = "price must be a non-negative number";
+const invalidStockMessage = "stock must be a whole number that is 0 or greater";
 
 const productFields = {
   name: z.string().trim().min(1, "name must be a non-empty string"),
@@ -8,6 +9,7 @@ const productFields = {
     .number({ error: invalidPriceMessage })
     .finite(invalidPriceMessage)
     .nonnegative(invalidPriceMessage),
+  stock: z.number().int(invalidStockMessage).min(0, invalidStockMessage).default(0),
 };
 
 export const createProductSchema = z.object(productFields);
@@ -16,6 +18,7 @@ export const updateProductSchema = z
   .object({
     name: productFields.name.optional(),
     price: productFields.price.optional(),
+    stock: productFields.stock.optional(),
   })
   .refine((input) => Object.keys(input).length > 0, {
     message: "At least one product field must be provided",

@@ -7,11 +7,13 @@ import { emitProductEvent } from "../../realtime/socket.js";
 type CreateProductInput = {
   name: string;
   price: number;
+  stock: number;
 };
 
 type UpdateProductInput = {
   name?: string | undefined;
   price?: number | undefined;
+  stock?: number | undefined;
 };
 
 type ProductPageOptions = {
@@ -100,6 +102,7 @@ export async function updateProductById(
   const data = {
     ...(input.name === undefined ? {} : { name: input.name }),
     ...(input.price === undefined ? {} : { price: input.price }),
+    ...(input.stock === undefined ? {} : { stock: input.stock }),
   };
 
   const product = await productsRepository.updateById(id, data);

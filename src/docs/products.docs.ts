@@ -18,7 +18,7 @@ export const productPaths = {
     },
     post: {
       summary: "Create a product",
-      requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["name", "price"], properties: { name: { type: "string" }, price: { type: "number", minimum: 0 } } } } } },
+      requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["name", "price"], properties: { name: { type: "string" }, price: { type: "number", minimum: 0 }, stock: { type: "integer", minimum: 0, default: 0 } } } } } },
       responses: { "201": { description: "Product created" }, "400": { description: "Invalid input" } },
     },
   },
