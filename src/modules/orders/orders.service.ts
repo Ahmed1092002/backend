@@ -1,16 +1,10 @@
-import { Prisma, type Product } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../database/prisma.js";
 import { AppError } from "../../errors/app-error.js";
-import { clearProductCache } from "../../cache/redis.js";
 import { env } from "../../config/env.js";
-import { queueLowStockEmail } from "../../jobs/email.queue.js";
-import {
-  emitProductEvent,
-  emitUserNotification,
-} from "../../realtime/socket.js";
 import type { OrderResponseDto } from "./orders.dto.js";
 import type { CreateOrderInput } from "./orders.validation.js";
-import * as usersRepository from "../users/users.repository.js";
+import { publishOrderConfirmed } from "./orders.events.js";
 
 function toOrderResponseDto(order: Prisma.OrderGetPayload<{ include: { items: true } }>): OrderResponseDto {
   return {
@@ -29,7 +23,13 @@ function toOrderResponseDto(order: Prisma.OrderGetPayload<{ include: { items: tr
   };
 }
 
-function toProductEventPayload(product: Product) {
+function toProductEventPayload(product: {
+  id: string;
+  name: string;
+  price: Prisma.Decimal;
+  stock: number;
+  imagePath: string | null;
+}) {
   return {
     id: product.id,
     name: product.name,
@@ -97,7 +97,10 @@ export async function confirmOrder(
     const sortedItems = [...orderToConfirm.items].sort((a, b) =>
       a.productId.localeCompare(b.productId),
     );
-    const stockChanges: { product: Product; crossedLowStock: boolean }[] = [];
+    const stockChanges: {
+      product: ReturnType<typeof toProductEventPayload>;
+      crossedLowStock: boolean;
+    }[] = [];
 
     for (const item of sortedItems) {
       const updated = await tx.product.updateMany({
@@ -125,7 +128,7 @@ export async function confirmOrder(
         where: { id: item.productId },
       });
       stockChanges.push({
-        product,
+        product: toProductEventPayload(product),
         crossedLowStock:
           product.stock <= env.lowStockThreshold &&
           product.stock + item.quantity > env.lowStockThreshold,
@@ -143,39 +146,9 @@ export async function confirmOrder(
 
   if (!result) return undefined;
 
-  await clearProductCache();
-  for (const { product } of result.stockChanges) {
-    emitProductEvent("product:updated", toProductEventPayload(product));
-  }
-  emitUserNotification(result.order.createdById, {
-    title: "Order confirmed",
-    message: `Order ${result.order.id} was confirmed.`,
-  });
-
-  const lowStockChanges = result.stockChanges.filter(
-    (change) => change.crossedLowStock,
-  );
-  if (lowStockChanges.length > 0) {
-    try {
-      const recipients = await usersRepository.findInventoryAlertRecipients();
-      await Promise.all(
-        lowStockChanges.map(({ product }) =>
-          queueLowStockEmail(
-            product.id,
-            product.name,
-            product.stock,
-            recipients.map(({ email }) => email),
-          ),
-        ),
-      );
-    } catch (error) {
-      // A completed order must not be rolled back because the alert service is
-      // temporarily unavailable. We learn the durable outbox solution later.
-      console.error("Could not queue low-stock alert", error);
-    }
-  }
-
-  return toOrderResponseDto(result.order);
+  const order = toOrderResponseDto(result.order);
+  await publishOrderConfirmed({ order, stockChanges: result.stockChanges });
+  return order;
 }
 
 export async function findConfirmedOrderById(
