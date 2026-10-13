@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: mini-erp-api
+    metrics_path: /metrics
+    static_configs:
+      # Docker Compose service names work as hostnames on the internal network.
+      - targets: ["api:3000"]

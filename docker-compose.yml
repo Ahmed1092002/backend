@@ -42,6 +42,9 @@ services:
       - "8025:8025"
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
   api:
     build:
       context: .
@@ -82,6 +85,19 @@ services:
         condition: service_started
       mailpit:
         condition: service_started
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    container_name: mini-erp-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      api:
+        condition: service_started
 volumes:
   postgres_data:
+  redis_data:
   upload_images:
+  prometheus_data:
