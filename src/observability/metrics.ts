@@ -1,17 +1,28 @@
-type HttpMetric = {
-  count: number;
-  durationSecondsSum: number;
-};
+import {
+  Histogram,
+  Registry,
+  collectDefaultMetrics,
+} from "@prometheus-io/client";
 
-const httpMetrics = new Map<string, HttpMetric>();
+export const metricsRegistry = new Registry();
 
-function metricKey(method: string, route: string, statusCode: number) {
-  return `${method}\u0000${route}\u0000${statusCode}`;
-}
+// Node.js process metrics: memory, CPU, event-loop lag, garbage collection,
+// active handles, and more. Prometheus collects them whenever it scrapes.
+collectDefaultMetrics({
+  register: metricsRegistry,
+  prefix: "mini_erp_",
+});
 
-function escapeLabel(value: string) {
-  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-}
+const httpRequestDuration = new Histogram<
+  "method" | "route" | "status_code"
+>({
+  name: "mini_erp_http_request_duration_seconds",
+  help: "HTTP request duration in seconds.",
+  labelNames: ["method", "route", "status_code"],
+  // Useful API latency thresholds: 50 ms through 5 seconds.
+  buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
+  registers: [metricsRegistry],
+});
 
 export function recordHttpRequest(
   method: string,
@@ -23,11 +34,10 @@ export function recordHttpRequest(
   // the metric it is reading.
   if (route === "/metrics") return;
 
-  const key = metricKey(method, route, statusCode);
-  const metric = httpMetrics.get(key) ?? { count: 0, durationSecondsSum: 0 };
-  metric.count += 1;
-  metric.durationSecondsSum += durationMs / 1_000;
-  httpMetrics.set(key, metric);
+  httpRequestDuration.observe(
+    { method, route, status_code: String(statusCode) },
+    durationMs / 1_000,
+  );
 }
 
 export function getMetricRoute(baseUrl: string, routePath: unknown) {
@@ -36,23 +46,3 @@ export function getMetricRoute(baseUrl: string, routePath: unknown) {
   return typeof routePath === "string" ? `${baseUrl}${routePath}` : "unmatched";
 }
 
-export function renderPrometheusMetrics() {
-  const lines = [
-    "# HELP http_requests_total Total completed HTTP requests.",
-    "# TYPE http_requests_total counter",
-    "# HELP http_request_duration_seconds HTTP request duration in seconds.",
-    "# TYPE http_request_duration_seconds summary",
-  ];
-
-  for (const [key, metric] of httpMetrics) {
-    const [method, route, statusCode] = key.split("\u0000");
-    const labels = `method="${escapeLabel(method ?? "")}",route="${escapeLabel(route ?? "")}",status_code="${escapeLabel(statusCode ?? "")}"`;
-    lines.push(`http_requests_total{${labels}} ${metric.count}`);
-    lines.push(
-      `http_request_duration_seconds_sum{${labels}} ${metric.durationSecondsSum}`,
-    );
-    lines.push(`http_request_duration_seconds_count{${labels}} ${metric.count}`);
-  }
-
-  return `${lines.join("\n")}\n`;
-}

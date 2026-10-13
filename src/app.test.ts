@@ -54,6 +54,6 @@ test("GET /metrics exposes Prometheus HTTP metrics", async () => {
 
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/plain/);
-  assert.match(body, /http_requests_total/);
+  assert.match(body, /mini_erp_http_request_duration_seconds/);
   assert.match(body, /route="\/health"/);
 });
