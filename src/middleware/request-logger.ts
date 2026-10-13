@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { randomUUID } from "node:crypto";
+import { logger } from "../observability/logger.js";
 
 export function requestLogger(
   req: Request,
@@ -7,7 +8,6 @@ export function requestLogger(
   next: NextFunction,
 ): void {
   const startedAt = performance.now();
-  const url = req.originalUrl;
   const requestId = randomUUID();
 
   res.locals.requestId = requestId;
@@ -15,9 +15,13 @@ export function requestLogger(
 
   res.on("finish", () => {
     const durationMs = Math.round(performance.now() - startedAt);
-    console.log(
-      `[${requestId}] ${req.method} ${url} -> ${res.statusCode} (${durationMs} ms)`,
-    );
+    logger.info("http_request_completed", {
+      requestId,
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      durationMs,
+    });
   });
 
   next();
