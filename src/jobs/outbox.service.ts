@@ -77,7 +77,10 @@ export async function processNextOutboxEvent(workerId: string) {
 
     // The writer controls this payload shape. Runtime validation can be added
     // when other services are allowed to publish events into this table.
-    await publishOrderConfirmed(event.payload as unknown as OrderConfirmedEvent);
+    const payload = event.payload as unknown as OrderConfirmedEvent;
+    // The database row ID is the stable identity used by downstream consumers
+    // to make their own work idempotent.
+    await publishOrderConfirmed({ ...payload, outboxEventId: event.id });
     await markProcessed(event.id, workerId);
   } catch (error) {
     await releaseForRetry(event.id, workerId, error);

@@ -42,6 +42,7 @@ export function queueWelcomeEmail(userId: string, name: string, email: string) {
 }
 
 export function queueLowStockEmail(
+  outboxEventId: string,
   productId: string,
   productName: string,
   stock: number,
@@ -51,8 +52,9 @@ export function queueLowStockEmail(
     "low-stock",
     { recipients, productName, stock },
     {
-      // One alert per product and stock value; BullMQ retries the same job.
-      jobId: `low-stock:${productId}:${stock}`,
+      // Replaying the same Outbox event must resolve to this exact same BullMQ
+      // job, so it cannot queue a second low-stock email.
+      jobId: `outbox-${outboxEventId}-low-stock-${productId}`,
       attempts: 3,
       backoff: { type: "exponential", delay: 1000 },
     },

@@ -2,6 +2,8 @@ import type { ProductResponseDto } from "../products/products.dto.js";
 import type { OrderResponseDto } from "./orders.dto.js";
 
 export type OrderConfirmedEvent = {
+  // Added by the Outbox processor, not stored inside the event payload.
+  outboxEventId?: string;
   order: OrderResponseDto;
   stockChanges: {
     product: ProductResponseDto;

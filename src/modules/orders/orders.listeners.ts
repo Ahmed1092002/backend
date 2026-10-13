@@ -40,6 +40,7 @@ async function sendRealtimeUpdatesWhenOrderConfirmed({
 }
 
 async function queueLowStockAlertsWhenOrderConfirmed({
+  outboxEventId,
   stockChanges,
 }: OrderConfirmedEvent) {
   const lowStockChanges = stockChanges.filter(
@@ -47,21 +48,20 @@ async function queueLowStockAlertsWhenOrderConfirmed({
   );
   if (lowStockChanges.length === 0) return;
 
-  try {
-    const recipients = await usersRepository.findInventoryAlertRecipients();
-    await Promise.all(
-      lowStockChanges.map(({ product }) =>
-        queueLowStockEmail(
-          product.id,
-          product.name,
-          product.stock,
-          recipients.map(({ email }) => email),
-        ),
-      ),
-    );
-  } catch (error) {
-    // A completed order must not be rolled back because the alert service is
-    // temporarily unavailable. We learn the durable outbox solution later.
-    console.error("Could not queue low-stock alert", error);
+  if (!outboxEventId) {
+    throw new Error("Low-stock alerts require an Outbox event ID");
   }
+
+  const recipients = await usersRepository.findInventoryAlertRecipients();
+  await Promise.all(
+    lowStockChanges.map(({ product }) =>
+      queueLowStockEmail(
+        outboxEventId,
+        product.id,
+        product.name,
+        product.stock,
+        recipients.map(({ email }) => email),
+      ),
+    ),
+  );
 }
