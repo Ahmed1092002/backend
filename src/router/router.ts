@@ -5,6 +5,7 @@ import { authRouter } from "../modules/auth/auth.router.js";
 import { productsRouter } from "../modules/products/products.router.js";
 import { usersRouter } from "../modules/users/users.router.js";
 import { ordersRouter } from "../modules/orders/orders.router.js";
+import { outboxRouter } from "../modules/outbox/outbox.router.js";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/auth", authRouter);
 router.use("/products", productsRouter);
 router.use("/users", usersRouter);
 router.use("/orders", ordersRouter);
+router.use("/outbox-events", outboxRouter);
 
 export { router };

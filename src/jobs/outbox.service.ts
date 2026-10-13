@@ -10,6 +10,41 @@ const POLL_INTERVAL_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 60_000;
 const MAX_ATTEMPTS = 10;
 
+export async function findFailedOutboxEvents() {
+  // Do not expose payloads from an operations endpoint: they may contain
+  // business or user data. Operators only need enough detail to investigate.
+  return prisma.outboxEvent.findMany({
+    where: { failedAt: { not: null } },
+    select: {
+      id: true,
+      type: true,
+      createdAt: true,
+      failedAt: true,
+      attempts: true,
+      lastError: true,
+    },
+    orderBy: { failedAt: "desc" },
+  });
+}
+
+export async function replayFailedOutboxEvent(eventId: string) {
+  // A replay is explicit and ADMIN-only. Reset attempts so the fixed event gets
+  // a complete retry budget; the row itself remains the same audit record.
+  const result = await prisma.outboxEvent.updateMany({
+    where: { id: eventId, processedAt: null, failedAt: { not: null } },
+    data: {
+      failedAt: null,
+      attempts: 0,
+      lastError: null,
+      lockedAt: null,
+      lockedBy: null,
+      availableAt: new Date(),
+    },
+  });
+
+  return result.count === 1;
+}
+
 export async function saveOrderConfirmedEvent(
   tx: Prisma.TransactionClient,
   event: OrderConfirmedEvent,
