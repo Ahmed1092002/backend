@@ -7,6 +7,7 @@ import {
 } from "../modules/orders/orders.events.js";
 
 const POLL_INTERVAL_MS = 1_000;
+const MAX_RETRY_DELAY_MS = 60_000;
 
 export async function saveOrderConfirmedEvent(
   tx: Prisma.TransactionClient,
@@ -29,6 +30,7 @@ async function claimNextEvent(workerId: string): Promise<OutboxEvent | undefined
       SELECT "id"
       FROM "OutboxEvent"
       WHERE "processedAt" IS NULL
+        AND "availableAt" <= NOW()
         AND ("lockedAt" IS NULL OR "lockedAt" < NOW() - INTERVAL '5 minutes')
       ORDER BY "createdAt"
       FOR UPDATE SKIP LOCKED
@@ -58,11 +60,26 @@ async function markProcessed(eventId: string, workerId: string) {
   });
 }
 
-async function releaseForRetry(eventId: string, workerId: string, error: unknown) {
+async function releaseForRetry(
+  event: OutboxEvent,
+  workerId: string,
+  error: unknown,
+) {
   const message = error instanceof Error ? error.message : String(error);
+  // 1 s, 2 s, 4 s, 8 s … up to one minute. A failing dependency is given
+  // room to recover instead of being hit again every polling second.
+  const retryDelayMs = Math.min(
+    1_000 * 2 ** Math.max(event.attempts - 1, 0),
+    MAX_RETRY_DELAY_MS,
+  );
   await prisma.outboxEvent.updateMany({
-    where: { id: eventId, lockedBy: workerId, processedAt: null },
-    data: { lockedAt: null, lockedBy: null, lastError: message.slice(0, 1_000) },
+    where: { id: event.id, lockedBy: workerId, processedAt: null },
+    data: {
+      lockedAt: null,
+      lockedBy: null,
+      availableAt: new Date(Date.now() + retryDelayMs),
+      lastError: message.slice(0, 1_000),
+    },
   });
 }
 
@@ -83,7 +100,7 @@ export async function processNextOutboxEvent(workerId: string) {
     await publishOrderConfirmed({ ...payload, outboxEventId: event.id });
     await markProcessed(event.id, workerId);
   } catch (error) {
-    await releaseForRetry(event.id, workerId, error);
+    await releaseForRetry(event, workerId, error);
     console.error(`Outbox event ${event.id} failed`, error);
     // Wait for the next polling interval before retrying. A permanent failure
     // must not create a hot loop that overloads the API or database.

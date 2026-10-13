@@ -76,6 +76,7 @@ model OutboxEvent {
   type        String
   payload     Json
   createdAt   DateTime  @default(now())
+  availableAt DateTime  @default(now())
   processedAt DateTime?
   lockedAt    DateTime?
   lockedBy    String?
@@ -83,7 +84,7 @@ model OutboxEvent {
   lastError   String?
 
   // The future worker asks for pending, unlocked events in creation order.
-  @@index([processedAt, lockedAt, createdAt])
+  @@index([processedAt, availableAt, lockedAt, createdAt])
 }
 
 model OrderItem {
