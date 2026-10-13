@@ -1,6 +1,7 @@
 import { Prisma, type OutboxEvent } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../database/prisma.js";
+import { logger } from "../observability/logger.js";
 import {
   publishOrderConfirmed,
   type OrderConfirmedEvent,
@@ -174,10 +175,11 @@ async function releaseForRetry(
   });
 
   if (hasExhaustedRetries) {
-    console.error(
-      `Outbox event ${event.id} exhausted ${MAX_ATTEMPTS} attempts`,
+    logger.error("outbox_event_exhausted", {
+      eventId: event.id,
+      attempts: event.attempts,
       error,
-    );
+    });
     return;
   }
 }
@@ -200,7 +202,7 @@ export async function processNextOutboxEvent(workerId: string) {
     await markProcessed(event.id, workerId);
   } catch (error) {
     await releaseForRetry(event, workerId, error);
-    console.error(`Outbox event ${event.id} failed`, error);
+    logger.error("outbox_event_failed", { eventId: event.id, error });
     // Wait for the next polling interval before retrying. A permanent failure
     // must not create a hot loop that overloads the API or database.
     return false;
@@ -222,7 +224,7 @@ export function startOutboxProcessor() {
         // The loop body is intentionally empty; processing happens above.
       }
     } catch (error) {
-      console.error("Outbox processor failed", error);
+      logger.error("outbox_processor_failed", { error });
     } finally {
       processing = false;
     }

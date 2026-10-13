@@ -4,6 +4,7 @@ import {
   sendWelcomeEmail,
 } from "../modules/auth/email.service.js";
 import { queueConnection } from "../jobs/connection.js";
+import { logger } from "../observability/logger.js";
 
 const workerWelcome = new Worker(
   "welcome-emails",
@@ -24,14 +25,14 @@ const workerLowStock = new Worker(
   { connection: queueConnection },
 );
 workerWelcome.on("completed", (job) =>
-  console.log(`Welcome email job ${job.id} completed`),
+  logger.info("welcome_email_job_completed", { jobId: job.id }),
 );
 workerWelcome.on("failed", (job, error) =>
-  console.error(`Welcome email job ${job?.id} failed`, error),
+  logger.error("welcome_email_job_failed", { jobId: job?.id, error }),
 );
 workerLowStock.on("completed", (job) =>
-  console.log(`Low stock email job ${job.id} completed`),
+  logger.info("low_stock_email_job_completed", { jobId: job.id }),
 );
 workerLowStock.on("failed", (job, error) =>
-  console.error(`Low stock email job ${job?.id} failed`, error),
+  logger.error("low_stock_email_job_failed", { jobId: job?.id, error }),
 );
