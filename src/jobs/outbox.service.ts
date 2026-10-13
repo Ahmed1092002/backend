@@ -27,6 +27,28 @@ export async function findFailedOutboxEvents() {
   });
 }
 
+export async function findOutboxEventDetails(eventId: string) {
+  // Payload stays private: this endpoint is for operational state and failure
+  // history, not for exposing business data stored in the event.
+  return prisma.outboxEvent.findUnique({
+    where: { id: eventId },
+    select: {
+      id: true,
+      type: true,
+      createdAt: true,
+      availableAt: true,
+      processedAt: true,
+      failedAt: true,
+      attempts: true,
+      lastError: true,
+      attemptHistory: {
+        select: { attemptNumber: true, error: true, attemptedAt: true },
+        orderBy: { attemptedAt: "asc" },
+      },
+    },
+  });
+}
+
 export async function replayFailedOutboxEvent(eventId: string) {
   // A replay is explicit and ADMIN-only. Reset attempts so the fixed event gets
   // a complete retry budget; the row itself remains the same audit record.

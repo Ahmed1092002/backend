@@ -4,6 +4,7 @@ import { asyncHandler } from "../../middleware/async-handler.js";
 import { requireRole } from "../../middleware/requireRole.js";
 import { validate } from "../../middleware/validate.js";
 import {
+  getOutboxEvent,
   listFailedOutboxEvents,
   replayOutboxEvent,
 } from "./outbox.controller.js";
@@ -17,6 +18,13 @@ outboxRouter.get(
   authenticate,
   requireRole("ADMIN"),
   asyncHandler(listFailedOutboxEvents),
+);
+outboxRouter.get(
+  "/:id",
+  authenticate,
+  requireRole("ADMIN"),
+  validate(outboxEventIdParamsSchema, "params"),
+  asyncHandler(getOutboxEvent),
 );
 outboxRouter.post(
   "/:id/replay",
