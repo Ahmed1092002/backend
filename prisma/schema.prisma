@@ -78,13 +78,14 @@ model OutboxEvent {
   createdAt   DateTime  @default(now())
   availableAt DateTime  @default(now())
   processedAt DateTime?
+  failedAt    DateTime?
   lockedAt    DateTime?
   lockedBy    String?
   attempts    Int       @default(0)
   lastError   String?
 
   // The future worker asks for pending, unlocked events in creation order.
-  @@index([processedAt, availableAt, lockedAt, createdAt])
+  @@index([processedAt, failedAt, availableAt, lockedAt, createdAt])
 }
 
 model OrderItem {

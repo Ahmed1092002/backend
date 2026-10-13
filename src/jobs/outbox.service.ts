@@ -8,6 +8,7 @@ import {
 
 const POLL_INTERVAL_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 60_000;
+const MAX_ATTEMPTS = 10;
 
 export async function saveOrderConfirmedEvent(
   tx: Prisma.TransactionClient,
@@ -30,6 +31,7 @@ async function claimNextEvent(workerId: string): Promise<OutboxEvent | undefined
       SELECT "id"
       FROM "OutboxEvent"
       WHERE "processedAt" IS NULL
+        AND "failedAt" IS NULL
         AND "availableAt" <= NOW()
         AND ("lockedAt" IS NULL OR "lockedAt" < NOW() - INTERVAL '5 minutes')
       ORDER BY "createdAt"
@@ -66,6 +68,25 @@ async function releaseForRetry(
   error: unknown,
 ) {
   const message = error instanceof Error ? error.message : String(error);
+  if (event.attempts >= MAX_ATTEMPTS) {
+    // Keep the row and its error for investigation. It is a dead letter, not
+    // deleted data, and an operator can choose to replay it later.
+    await prisma.outboxEvent.updateMany({
+      where: { id: event.id, lockedBy: workerId, processedAt: null },
+      data: {
+        failedAt: new Date(),
+        lockedAt: null,
+        lockedBy: null,
+        lastError: message.slice(0, 1_000),
+      },
+    });
+    console.error(
+      `Outbox event ${event.id} exhausted ${MAX_ATTEMPTS} attempts`,
+      error,
+    );
+    return;
+  }
+
   // 1 s, 2 s, 4 s, 8 s … up to one minute. A failing dependency is given
   // room to recover instead of being hit again every polling second.
   const retryDelayMs = Math.min(
