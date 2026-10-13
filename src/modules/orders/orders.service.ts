@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
 import { prisma } from "../../database/prisma.js";
 import { AppError } from "../../errors/app-error.js";
 import { env } from "../../config/env.js";
@@ -42,8 +43,15 @@ function toProductEventPayload(product: {
 export async function createOrder(
   input: CreateOrderInput,
   createdById: string,
-): Promise<OrderResponseDto> {
-  const order = await prisma.$transaction(async (tx) => {
+  idempotencyKey: string,
+): Promise<{ order: OrderResponseDto; replayed: boolean }> {
+  const scope = `orders.create:${createdById}`;
+  const requestHash = createHash("sha256")
+    .update(JSON.stringify(input))
+    .digest("hex");
+
+  try {
+    const order = await prisma.$transaction(async (tx) => {
     const products = await tx.product.findMany({
       where: { id: { in: input.items.map((item) => item.productId) } },
     });
@@ -67,13 +75,42 @@ export async function createOrder(
       new Prisma.Decimal(0),
     );
 
-    return tx.order.create({
+    const order = await tx.order.create({
       data: { createdById, total, items: { create: items } },
       include: { items: true },
     });
+
+    await tx.idempotencyKey.create({
+      data: { scope, key: idempotencyKey, requestHash, orderId: order.id },
+    });
+
+    return order;
   });
 
-  return toOrderResponseDto(order);
+    return { order: toOrderResponseDto(order), replayed: false };
+  } catch (error) {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== "P2002"
+    ) {
+      throw error;
+    }
+
+    const existing = await prisma.idempotencyKey.findUnique({
+      where: { scope_key: { scope, key: idempotencyKey } },
+      include: { order: { include: { items: true } } },
+    });
+
+    if (!existing) throw error;
+    if (existing.requestHash !== requestHash) {
+      throw new AppError(
+        409,
+        "Idempotency-Key was already used with a different request",
+      );
+    }
+
+    return { order: toOrderResponseDto(existing.order), replayed: true };
+  }
 }
 
 export async function confirmOrder(

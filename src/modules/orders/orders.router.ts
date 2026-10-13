@@ -3,6 +3,7 @@ import { authenticate } from "../../middleware/authnticate.js";
 import { asyncHandler } from "../../middleware/async-handler.js";
 import { requireRole } from "../../middleware/requireRole.js";
 import { validate } from "../../middleware/validate.js";
+import { requireIdempotencyKey } from "../../middleware/idempotency-key.js";
 import {
   confirmOrder,
   createOrder,
@@ -16,6 +17,7 @@ ordersRouter.post(
   "/",
   authenticate,
   requireRole("ADMIN", "MANAGER"),
+  requireIdempotencyKey,
   validate(createOrderSchema),
   asyncHandler(createOrder),
 );

@@ -3,6 +3,14 @@ export const orderPaths = {
     post: {
       summary: "Create a draft order",
       security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "Idempotency-Key",
+          in: "header",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
       requestBody: {
         required: true,
         content: {

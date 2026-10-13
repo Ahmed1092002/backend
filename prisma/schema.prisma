@@ -52,6 +52,20 @@ model Order {
 
   createdBy User        @relation(fields: [createdById], references: [id])
   items     OrderItem[]
+  idempotencyKey IdempotencyKey?
+}
+
+model IdempotencyKey {
+  id          String   @id @default(uuid())
+  scope       String
+  key         String
+  requestHash String
+  orderId     String   @unique
+  createdAt   DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([scope, key])
 }
 
 model OrderItem {

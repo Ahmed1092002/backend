@@ -9,8 +9,16 @@ import type { CreateOrderInput } from "./orders.validation.js";
 
 export const createOrder: RequestHandler = async (req, res) => {
   const user = res.locals.user as { id: string };
-  const order = await createOrderInService(req.body as CreateOrderInput, user.id);
-  res.status(201).json({ data: order });
+  const result = await createOrderInService(
+    req.body as CreateOrderInput,
+    user.id,
+    res.locals.idempotencyKey as string,
+  );
+
+  if (result.replayed) {
+    res.setHeader("Idempotency-Replayed", "true");
+  }
+  res.status(result.replayed ? 200 : 201).json({ data: result.order });
 };
 
 export const confirmOrder: RequestHandler = async (req, res) => {
