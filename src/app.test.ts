@@ -47,3 +47,13 @@ test("GET /api/auth/me rejects a request without an access token", async () => {
     error: "Authorization header missing",
   });
 });
+
+test("GET /metrics exposes Prometheus HTTP metrics", async () => {
+  const response = await fetch(apiUrl("/metrics"));
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /text\/plain/);
+  assert.match(body, /http_requests_total/);
+  assert.match(body, /route="\/health"/);
+});

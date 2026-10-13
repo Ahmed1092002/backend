@@ -8,6 +8,7 @@ import { openApiDocument } from "./docs/openapi.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
 import { uploadsDirectory } from "./middleware/upload-image.js";
+import { renderPrometheusMetrics } from "./observability/metrics.js";
 import { router } from "./router/router.js";
 
 export const app = express();
@@ -45,6 +46,11 @@ app.get("/health/ready", async (_req, res) => {
       database: "unavailable",
     });
   }
+});
+
+app.get("/metrics", (_req, res) => {
+  res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+  res.status(200).send(renderPrometheusMetrics());
 });
 
 app.use("/api", router);
