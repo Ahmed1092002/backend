@@ -83,9 +83,24 @@ model OutboxEvent {
   lockedBy    String?
   attempts    Int       @default(0)
   lastError   String?
+  attemptHistory OutboxEventAttempt[]
 
   // The future worker asks for pending, unlocked events in creation order.
   @@index([processedAt, failedAt, availableAt, lockedAt, createdAt])
+}
+
+model OutboxEventAttempt {
+  id            String   @id @default(uuid())
+  outboxEventId String
+  attemptNumber Int
+  error         String
+  attemptedAt   DateTime @default(now())
+
+  outboxEvent OutboxEvent @relation(fields: [outboxEventId], references: [id], onDelete: Cascade)
+
+  // A replay resets the parent attempt counter, so the history itself remains
+  // append-only instead of treating an old attempt number as the same record.
+  @@index([outboxEventId, attemptedAt])
 }
 
 model OrderItem {

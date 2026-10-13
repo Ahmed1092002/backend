@@ -1,0 +1,1 @@
+DROP INDEX "OutboxEventAttempt_outboxEventId_attemptNumber_key";

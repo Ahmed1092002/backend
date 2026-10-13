@@ -103,40 +103,61 @@ async function releaseForRetry(
   error: unknown,
 ) {
   const message = error instanceof Error ? error.message : String(error);
-  if (event.attempts >= MAX_ATTEMPTS) {
-    // Keep the row and its error for investigation. It is a dead letter, not
-    // deleted data, and an operator can choose to replay it later.
-    await prisma.outboxEvent.updateMany({
-      where: { id: event.id, lockedBy: workerId, processedAt: null },
+  const savedError = message.slice(0, 1_000);
+
+  // Preserve every failure. `lastError` is only a convenient summary on the
+  // parent row; this table is the real history used during investigation.
+  const hasExhaustedRetries = event.attempts >= MAX_ATTEMPTS;
+  const retryDelayMs = Math.min(
+    1_000 * 2 ** Math.max(event.attempts - 1, 0),
+    MAX_RETRY_DELAY_MS,
+  );
+
+  // Writing the history row and changing the event state are one database
+  // transaction: we never want history that says "failed" while the parent
+  // row still looks successfully locked.
+  await prisma.$transaction(async (tx) => {
+    await tx.outboxEventAttempt.create({
       data: {
-        failedAt: new Date(),
-        lockedAt: null,
-        lockedBy: null,
-        lastError: message.slice(0, 1_000),
+        outboxEventId: event.id,
+        attemptNumber: event.attempts,
+        error: savedError,
       },
     });
+
+    if (hasExhaustedRetries) {
+      // Keep the row and its error for investigation. It is a dead letter, not
+      // deleted data, and an operator can choose to replay it later.
+      await tx.outboxEvent.updateMany({
+        where: { id: event.id, lockedBy: workerId, processedAt: null },
+        data: {
+          failedAt: new Date(),
+          lockedAt: null,
+          lockedBy: null,
+          lastError: savedError,
+        },
+      });
+      return;
+    }
+
+    await tx.outboxEvent.updateMany({
+      where: { id: event.id, lockedBy: workerId, processedAt: null },
+      data: {
+        lockedAt: null,
+        lockedBy: null,
+        availableAt: new Date(Date.now() + retryDelayMs),
+        lastError: savedError,
+      },
+    });
+  });
+
+  if (hasExhaustedRetries) {
     console.error(
       `Outbox event ${event.id} exhausted ${MAX_ATTEMPTS} attempts`,
       error,
     );
     return;
   }
-
-  // 1 s, 2 s, 4 s, 8 s … up to one minute. A failing dependency is given
-  // room to recover instead of being hit again every polling second.
-  const retryDelayMs = Math.min(
-    1_000 * 2 ** Math.max(event.attempts - 1, 0),
-    MAX_RETRY_DELAY_MS,
-  );
-  await prisma.outboxEvent.updateMany({
-    where: { id: event.id, lockedBy: workerId, processedAt: null },
-    data: {
-      lockedAt: null,
-      lockedBy: null,
-      availableAt: new Date(Date.now() + retryDelayMs),
-      lastError: message.slice(0, 1_000),
-    },
-  });
 }
 
 export async function processNextOutboxEvent(workerId: string) {
