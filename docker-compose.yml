@@ -96,8 +96,20 @@ services:
     depends_on:
       api:
         condition: service_started
+  grafana:
+    image: grafana/grafana:13.2.2
+    container_name: mini-erp-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
 volumes:
   postgres_data:
   redis_data:
   upload_images:
   prometheus_data:
+  grafana_data:
