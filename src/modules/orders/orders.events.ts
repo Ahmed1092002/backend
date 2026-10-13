@@ -22,12 +22,8 @@ export function onOrderConfirmed(listener: OrderConfirmedListener) {
 export async function publishOrderConfirmed(event: OrderConfirmedEvent) {
   // Run listeners in registration order: cache → real-time → email.
   for (const listener of orderConfirmedListeners) {
-    try {
-      await listener(event);
-    } catch (error) {
-      // The database transaction already succeeded. A non-critical side effect
-      // such as Socket.IO or an alert must not make order confirmation fail.
-      console.error("OrderConfirmed listener failed", error);
-    }
+    // Do not catch here. The Outbox processor owns retries and must know if a
+    // listener failed, while the already-committed order remains unaffected.
+    await listener(event);
   }
 }

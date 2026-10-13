@@ -68,6 +68,24 @@ model IdempotencyKey {
   @@unique([scope, key])
 }
 
+// A durable record of a business event that must be handled after the
+// transaction commits. It is deliberately generic: more event types can use
+// this same table later.
+model OutboxEvent {
+  id          String    @id @default(uuid())
+  type        String
+  payload     Json
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+  lockedAt    DateTime?
+  lockedBy    String?
+  attempts    Int       @default(0)
+  lastError   String?
+
+  // The future worker asks for pending, unlocked events in creation order.
+  @@index([processedAt, lockedAt, createdAt])
+}
+
 model OrderItem {
   id          String   @id @default(uuid())
   orderId     String
