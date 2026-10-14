@@ -97,6 +97,22 @@ services:
     depends_on:
       api:
         condition: service_started
+      alertmanager:
+        condition: service_started
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    container_name: mini-erp-alertmanager
+    ports:
+      - "9093:9093"
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    depends_on:
+      mailpit:
+        condition: service_started
   grafana:
     image: grafana/grafana:13.2.2
     container_name: mini-erp-grafana
@@ -114,4 +130,5 @@ volumes:
   redis_data:
   upload_images:
   prometheus_data:
+  alertmanager_data:
   grafana_data:
