@@ -118,6 +118,8 @@ docs/               # learning notes
 
 - [Observability and monitoring](docs/observability-monitoring.md)
 - [Outbox pattern](docs/outbox-pattern.md)
+- [Docker Compose guide](docs/docker-compose-guide.md)
+- [GitHub Actions guide](docs/github-actions-guide.md)
 - [Docker learning path](docs/docker-learning-path.md)
 - [Learning roadmap](docs/learning-roadmap.md)
 

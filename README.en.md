@@ -118,6 +118,8 @@ Read the detailed documentation:
 
 - [Observability and monitoring](docs/observability-monitoring.en.md)
 - [Outbox pattern](docs/outbox-pattern.en.md)
+- [Docker Compose guide](docs/docker-compose-guide.en.md)
+- [GitHub Actions guide](docs/github-actions-guide.en.md)
 - [Arabic README](README.md)
 - [Arabic observability guide](docs/observability-monitoring.md)
 - [Arabic Outbox guide](docs/outbox-pattern.md)
