@@ -1,0 +1,29 @@
+groups:
+  - name: mini-erp-api
+    rules:
+      - alert: MiniErpApiDown
+        expr: up{job="mini-erp-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Mini ERP API is unreachable
+          description: Prometheus has not been able to scrape the API for one minute.
+
+      - alert: MiniErpHighP95Latency
+        expr: histogram_quantile(0.95, sum by (le) (rate(mini_erp_http_request_duration_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Mini ERP p95 HTTP latency is above one second
+          description: At least 5% of HTTP requests are taking more than one second.
+
+      - alert: MiniErpHighServerErrorRate
+        expr: sum(rate(mini_erp_http_request_duration_seconds_count{status_code=~"5.."}[5m])) / clamp_min(sum(rate(mini_erp_http_request_duration_seconds_count[5m])), 0.001) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Mini ERP HTTP 5xx error rate is above 5 percent
+          description: More than 5% of HTTP requests are returning server errors.
