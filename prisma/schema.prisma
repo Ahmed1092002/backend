@@ -28,6 +28,11 @@ model InventoryMovement {
   createdAt DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Supports the product stock-history query: filter by product, then show
+  // the newest movements first. The matching index already exists in the
+  // original SQL migration; this keeps Prisma's schema in sync with it.
+  @@index([productId, createdAt])
 }
 
 model User {
