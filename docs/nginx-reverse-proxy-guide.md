@@ -84,6 +84,7 @@ http {
 
   upstream mini_erp_api {
     server api:3000;
+    server api-2:3000;
   }
 
   server {
@@ -157,10 +158,10 @@ upstream mini_erp_api {
 
 `upstream` اسم لمجموعة API servers.
 
-حالياً فيها server واحدة:
+حالياً فيها API instances متطابقة:
 
 ```text
-mini_erp_api -> api:3000
+mini_erp_api -> api:3000 و api-2:3000
 ```
 
 `api` هو اسم service في `docker-compose.yml`. Docker Compose يوفر DNS داخلياً، لذلك Nginx تستطيع الوصول إلى service بهذا الاسم.
@@ -242,10 +243,10 @@ proxy_set_header X-Forwarded-Proto $scheme;
 
 ## 14. متى يصبح Nginx Load Balancer؟
 
-حالياً Nginx reverse proxy فقط لأن عندنا API واحدة:
+عندما توجد أكثر من API instance، Nginx يعمل load balancing أيضاً:
 
 ```text
-Client -> Nginx -> API واحدة
+Client -> Nginx -> API 1 أو API 2
 ```
 
 لو أصبح عندنا APIs كثيرة:
@@ -269,7 +270,41 @@ Request 4 -> API 1
 
 Nginx يستخدم round-robin افتراضياً عندما يوجد أكثر من server في upstream.
 
-## 15. ما هو `worker_connections`؟
+## 15. Sticky Sessions ولماذا أضفنا `ip_hash`
+
+Socket.IO قد يبدأ الاتصال باستخدام HTTP polling قبل أن يتحول إلى WebSocket. إذا وصل request أول إلى `api-1` ثم وصل request polling التالي إلى `api-2`، قد لا تعرف النسخة الثانية الـSocket.IO session نفسها وينتج خطأ مثل `400 Session ID unknown`.
+
+لدينا الآن:
+
+```nginx
+upstream mini_erp_api {
+  ip_hash;
+  server api:3000;
+  server api-2:3000;
+}
+```
+
+`ip_hash` يجعل Nginx يحسب اختيار الـAPI من IP العميل. لذلك requests من نفس العميل تذهب غالباً إلى نفس API instance:
+
+```text
+Client A -> api-1 دائماً تقريباً
+Client B -> api-2 دائماً تقريباً
+```
+
+هذا يسمى **sticky session** أو **session affinity**.
+
+Redis Adapter الذي أضفناه سابقاً له وظيفة مختلفة: إذا event صدر من `api-1` وsocket العميل متصل بـ`api-2`، Redis ينقل event بين النسختين. نحتاج الاثنين عند وجود Socket.IO مع أكثر من instance:
+
+```text
+Sticky session = requests لنفس socket تصل لنفس instance.
+Redis adapter  = events تنتقل بين instances.
+```
+
+في local development، كل requests من جهازك تأتي غالباً من نفس IP، لذلك سترى instance واحدة ثابتة. هذا سلوك صحيح بعد إضافة `ip_hash`.
+
+في production خلف CDN أو proxy آخر يجب ضبط trusted proxy/real client IP بصورة صحيحة. أحياناً تستخدم الشركات cookie-based affinity بدلاً من IP affinity. لا نضيف ذلك الآن لأنه يحتاج معرفة الـdeployment الحقيقي.
+
+## 16. ما هو `worker_connections`؟
 
 تخيّل:
 
@@ -313,7 +348,7 @@ Nginx قد تحتاج connection مع المستخدم وconnection أخرى م�
 
 WebSocket مهم هنا: HTTP request عادية تنتهي سريعاً، لكن chat/Socket.IO connection قد تظل مفتوحة مدة طويلة، فتستهلك connection من الحد.
 
-## 16. كيف نختار القيمة؟
+## 17. كيف نختار القيمة؟
 
 لا نختارها حسب عدد users المسجلين. نختارها حسب:
 
@@ -331,7 +366,7 @@ events {}
 
 لأننا في local learning setup. في production نبدأ عادةً بقيمة معقولة مثل `1024` ثم نراقب ونضبط وفق بيانات حقيقية، وليس تخميناً.
 
-## 17. تشغيل وتجربة Nginx محلياً
+## 18. تشغيل وتجربة Nginx محلياً
 
 بعد تشغيل Docker Desktop:
 
