@@ -73,6 +73,13 @@ services:
         condition: service_started
     volumes:
       - upload_images:/app/uploads
+    healthcheck:
+      # Readiness means the API process is up and can reach PostgreSQL.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
   api-2:
     # A second copy of the same API. It has no host port: outside traffic goes
     # through Nginx, which can distribute requests to both instances.
@@ -101,6 +108,12 @@ services:
     volumes:
       # Both instances must see the same files in this single-host lab.
       - upload_images:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
   nginx:
     image: nginx:alpine
     ports:

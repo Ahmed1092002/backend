@@ -304,7 +304,49 @@ Redis adapter  = events تنتقل بين instances.
 
 في production خلف CDN أو proxy آخر يجب ضبط trusted proxy/real client IP بصورة صحيحة. أحياناً تستخدم الشركات cookie-based affinity بدلاً من IP affinity. لا نضيف ذلك الآن لأنه يحتاج معرفة الـdeployment الحقيقي.
 
-## 16. ما هو `worker_connections`؟
+## 16. Health Checks وFailover
+
+لدينا endpoint جاهز في Express:
+
+```text
+GET /health        = process يعمل
+GET /health/ready  = process يعمل وPostgreSQL متصل
+```
+
+Docker Compose يشغّل health check داخل كل API container على `/health/ready`. بعد ثلاث محاولات فاشلة يظهر container كـ`unhealthy` في `docker compose ps`.
+
+```yaml
+healthcheck:
+  test: ["CMD", "node", "-e", "..."]
+  interval: 10s
+  timeout: 5s
+  retries: 3
+```
+
+هذا مهم، لكنه لا يعني أن Nginx Open Source يطلب `/health/ready` باستمرار. هذا النوع يسمى **active health check**، وهو يحتاج Nginx Plus أو health-check component/monitor منفصل في إعدادات production.
+
+Nginx عندنا يستخدم **passive failover**:
+
+```nginx
+server api:3000 max_fails=1 fail_timeout=10s;
+server api-2:3000 max_fails=1 fail_timeout=10s;
+
+proxy_next_upstream error timeout http_502 http_503 http_504;
+proxy_next_upstream_tries 2;
+```
+
+معناه:
+
+```text
+1. Nginx يرسل request إلى api-1.
+2. الاتصال يفشل أو api-1 ترجع 502/503/504.
+3. Nginx يجرب api-2 في نفس request عندما يكون ذلك آمناً.
+4. api-1 تعتبر غير متاحة مدة 10 ثوانٍ.
+```
+
+لا نضيف `non_idempotent`؛ لذلك لا يعيد Nginx POST بشكل أعمى إذا كان ممكن أن الـAPI الأولى استقبلت الطلب بالفعل. الـidempotency key الذي بنيناه في Orders حماية إضافية، لكنه ليس سببًا لجعل retry التلقائي افتراضيًا لكل POST.
+
+## 17. ما هو `worker_connections`؟
 
 تخيّل:
 
@@ -348,7 +390,7 @@ Nginx قد تحتاج connection مع المستخدم وconnection أخرى م�
 
 WebSocket مهم هنا: HTTP request عادية تنتهي سريعاً، لكن chat/Socket.IO connection قد تظل مفتوحة مدة طويلة، فتستهلك connection من الحد.
 
-## 17. كيف نختار القيمة؟
+## 18. كيف نختار القيمة؟
 
 لا نختارها حسب عدد users المسجلين. نختارها حسب:
 
@@ -366,7 +408,7 @@ events {}
 
 لأننا في local learning setup. في production نبدأ عادةً بقيمة معقولة مثل `1024` ثم نراقب ونضبط وفق بيانات حقيقية، وليس تخميناً.
 
-## 18. تشغيل وتجربة Nginx محلياً
+## 19. تشغيل وتجربة Nginx محلياً
 
 بعد تشغيل Docker Desktop:
 
