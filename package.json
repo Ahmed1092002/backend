@@ -35,6 +35,7 @@
   "dependencies": {
     "@prisma/client": "^6.14.0",
     "@prometheus-io/client": "^0.16.1",
+    "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^6.3.12",
     "cookie-parser": "^1.4.7",
