@@ -1,9 +1,7 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import { createHash } from "node:crypto";
-import { prisma } from "../../database/prisma.js";
 import { AppError } from "../../errors/app-error.js";
-import { env } from "../../config/env.js";
-import { saveOrderConfirmedEvent } from "../../jobs/outbox.service.js";
+import type { OrderConfirmedEvent } from "./orders.events.js";
 import type { OrderResponseDto } from "./orders.dto.js";
 import type { CreateOrderInput } from "./orders.validation.js";
 
@@ -40,7 +38,24 @@ function toProductEventPayload(product: {
   };
 }
 
-export async function createOrder(
+export type OrdersServiceDependencies = {
+  prisma: PrismaClient;
+  lowStockThreshold: number;
+  saveOrderConfirmedEvent: (
+    tx: Prisma.TransactionClient,
+    event: OrderConfirmedEvent,
+  ) => Promise<void>;
+};
+
+// Business logic receives its infrastructure instead of importing it itself.
+// That keeps this service testable: a test can provide a test database client
+// and a fake event writer without starting the whole application.
+export function createOrdersService({
+  prisma,
+  lowStockThreshold,
+  saveOrderConfirmedEvent,
+}: OrdersServiceDependencies) {
+async function createOrder(
   input: CreateOrderInput,
   createdById: string,
   idempotencyKey: string,
@@ -126,7 +141,7 @@ export async function createOrder(
   }
 }
 
-export async function confirmOrder(
+async function confirmOrder(
   orderId: string,
   actorId: string,
 ): Promise<OrderResponseDto | undefined> {
@@ -189,8 +204,8 @@ export async function confirmOrder(
       return {
         product: toProductEventPayload(product),
         crossedLowStock:
-          product.stock <= env.lowStockThreshold &&
-          product.stock + item.quantity > env.lowStockThreshold,
+          product.stock <= lowStockThreshold &&
+          product.stock + item.quantity > lowStockThreshold,
       };
     });
 
@@ -214,7 +229,7 @@ export async function confirmOrder(
   return toOrderResponseDto(result.order);
 }
 
-export async function findConfirmedOrderById(
+async function findConfirmedOrderById(
   orderId: string,
 ): Promise<OrderResponseDto | undefined> {
   const order = await prisma.order.findUnique({
@@ -229,3 +244,12 @@ export async function findConfirmedOrderById(
 
   return toOrderResponseDto(order);
 }
+
+  return {
+    createOrder,
+    confirmOrder,
+    findConfirmedOrderById,
+  };
+}
+
+export type OrdersService = ReturnType<typeof createOrdersService>;

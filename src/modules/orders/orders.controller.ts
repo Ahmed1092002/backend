@@ -1,15 +1,11 @@
 import type { RequestHandler } from "express";
-import {
-  confirmOrder as confirmOrderInService,
-  createOrder as createOrderInService,
-  findConfirmedOrderById,
-} from "./orders.service.js";
+import { ordersService } from "./orders.module.js";
 import { writeInvoicePdf } from "./invoice.service.js";
 import type { CreateOrderInput } from "./orders.validation.js";
 
 export const createOrder: RequestHandler = async (req, res) => {
   const user = res.locals.user as { id: string };
-  const result = await createOrderInService(
+  const result = await ordersService.createOrder(
     req.body as CreateOrderInput,
     user.id,
     res.locals.idempotencyKey as string,
@@ -30,7 +26,7 @@ export const confirmOrder: RequestHandler = async (req, res) => {
     return;
   }
 
-  const order = await confirmOrderInService(id, user.id);
+  const order = await ordersService.confirmOrder(id, user.id);
 
   if (!order) {
     res.status(404).json({ error: "Order not found" });
@@ -48,7 +44,7 @@ export const downloadInvoice: RequestHandler = async (req, res) => {
     return;
   }
 
-  const order = await findConfirmedOrderById(id);
+  const order = await ordersService.findConfirmedOrderById(id);
   if (!order) {
     res.status(404).json({ error: "Order not found" });
     return;
