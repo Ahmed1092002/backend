@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mini-erp-api-config
+  namespace: mini-erp
+data:
+  CLIENT_ORIGIN: http://localhost:5173
+  MAIL_HOST: mailpit
+  MAIL_PORT: "1025"
+  REDIS_URL: redis://redis:6379
+  LOW_STOCK_THRESHOLD: "5"

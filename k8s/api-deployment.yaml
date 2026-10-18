@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mini-erp-api
+  namespace: mini-erp
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Keep both old replicas available while one new Pod is starting.
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: mini-erp-api
+  template:
+    metadata:
+      labels:
+        app: mini-erp-api
+    spec:
+      # The app's SIGTERM handler has 10 seconds; Kubernetes allows 20.
+      terminationGracePeriodSeconds: 20
+      containers:
+        - name: api
+          image: mini-erp-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: mini-erp-api-config
+            - secretRef:
+                name: mini-erp-api-secrets
+          env:
+            # Each replica exposes its Pod name in /health for learning and
+            # tracing; it is not used as an authorization identity.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: INSTANCE_NAME
+              value: $(POD_NAME)
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
