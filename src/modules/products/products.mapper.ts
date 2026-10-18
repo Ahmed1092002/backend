@@ -1,8 +1,16 @@
-import type { Product as PrismaProduct } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import type { ProductResponseDto } from "./products.dto.js";
 
+type ProductForResponse = {
+  id: string;
+  name: string;
+  price: Prisma.Decimal;
+  stock: number;
+  imagePath: string | null;
+};
+
 export function toProductResponseDto(
-  product: PrismaProduct,
+  product: ProductForResponse,
 ): ProductResponseDto {
   return {
     id: product.id,

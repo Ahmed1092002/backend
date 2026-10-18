@@ -24,6 +24,16 @@ type ProductPageOptions = {
   maxPrice?: number | undefined;
 };
 
+// Keep database reads aligned with ProductResponseDto. createdAt and updatedAt
+// are useful columns, but this endpoint does not expose or use them.
+const productResponseSelect = {
+  id: true,
+  name: true,
+  price: true,
+  stock: true,
+  imagePath: true,
+} satisfies Prisma.ProductSelect;
+
 function toWhere({
   search,
   minPrice,
@@ -52,6 +62,7 @@ export function findPage(options: ProductPageOptions) {
   }[options.sortBy];
 
   return prisma.product.findMany({
+    select: productResponseSelect,
     orderBy,
     where,
     skip: options.offset,
@@ -64,7 +75,10 @@ export function count(options: ProductPageOptions) {
 }
 
 export function findById(id: string) {
-  return prisma.product.findUnique({ where: { id } });
+  return prisma.product.findUnique({
+    where: { id },
+    select: productResponseSelect,
+  });
 }
 
 export function create(data: CreateProductData) {
