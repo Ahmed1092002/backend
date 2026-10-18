@@ -9,6 +9,8 @@ import type { ProductResponseDto } from "../modules/products/products.dto.js";
 import { logger } from "../observability/logger.js";
 
 let io: Server | undefined;
+let pubClient: Redis | undefined;
+let subClient: Redis | undefined;
 
 type SocketUser = {
   id: string;
@@ -19,23 +21,25 @@ export async function initializeSocket(server: HttpServer) {
   // Redis Pub/Sub lets one API instance deliver an emitted Socket.IO event to
   // clients connected to a different API instance. These clients are separate
   // from the Redis client used by caching and the BullMQ clients used by jobs.
-  const pubClient = new Redis(env.redisUrl, { lazyConnect: true });
-  const subClient = pubClient.duplicate();
+  const nextPubClient = new Redis(env.redisUrl, { lazyConnect: true });
+  const nextSubClient = nextPubClient.duplicate();
 
-  pubClient.on("error", (error) =>
+  nextPubClient.on("error", (error) =>
     logger.error("socket_redis_publisher_error", { error }),
   );
-  subClient.on("error", (error) =>
+  nextSubClient.on("error", (error) =>
     logger.error("socket_redis_subscriber_error", { error }),
   );
 
-  await Promise.all([pubClient.connect(), subClient.connect()]);
+  await Promise.all([nextPubClient.connect(), nextSubClient.connect()]);
 
   const socketServer = new Server(server, {
     cors: { origin: env.clientOrigin, credentials: true },
   });
-  socketServer.adapter(createAdapter(pubClient, subClient));
+  socketServer.adapter(createAdapter(nextPubClient, nextSubClient));
   io = socketServer;
+  pubClient = nextPubClient;
+  subClient = nextSubClient;
 
   // The frontend sends its short-lived access token when opening Socket.IO.
   // Never trust a user id sent by the browser: get it from the verified JWT.
@@ -72,6 +76,20 @@ export async function initializeSocket(server: HttpServer) {
     socket.join(`user:${user.id}`);
     logger.info("socket_connected", { socketId: socket.id, userId: user.id });
   });
+}
+
+export async function closeSocketConnections() {
+  // WebSockets are long-lived. Close them deliberately so clients can
+  // reconnect through Nginx to another healthy API instance during deploy.
+  io?.disconnectSockets(true);
+  io = undefined;
+
+  const clients = [pubClient, subClient].filter(
+    (client): client is Redis => client !== undefined,
+  );
+  pubClient = undefined;
+  subClient = undefined;
+  await Promise.all(clients.map((client) => client.quit()));
 }
 
 export function emitProductEvent(

@@ -214,13 +214,15 @@ export async function processNextOutboxEvent(workerId: string) {
 export function startOutboxProcessor() {
   const workerId = `api-${process.pid}-${randomUUID()}`;
   let processing = false;
+  let stopping = false;
+  let activeTick: Promise<void> | undefined;
 
   const tick = async () => {
-    if (processing) return;
+    if (processing || stopping) return;
     processing = true;
     try {
       // Drain the current backlog, then wait for the next polling interval.
-      while (await processNextOutboxEvent(workerId)) {
+      while (!stopping && (await processNextOutboxEvent(workerId))) {
         // The loop body is intentionally empty; processing happens above.
       }
     } catch (error) {
@@ -230,6 +232,22 @@ export function startOutboxProcessor() {
     }
   };
 
-  void tick();
-  return setInterval(() => void tick(), POLL_INTERVAL_MS);
+  const runTick = () => {
+    activeTick = tick().finally(() => {
+      activeTick = undefined;
+    });
+  };
+
+  runTick();
+  const interval = setInterval(runTick, POLL_INTERVAL_MS);
+
+  return {
+    async stop() {
+      // Do not claim new events during shutdown. If a handler is already in
+      // progress, let it finish so its database state remains consistent.
+      stopping = true;
+      clearInterval(interval);
+      await activeTick;
+    },
+  };
 }
