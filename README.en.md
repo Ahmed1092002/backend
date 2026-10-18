@@ -50,6 +50,7 @@ docker compose down
 | Service | URL |
 | --- | --- |
 | API | http://localhost:3000 |
+| API through Nginx reverse proxy | http://localhost:8080 |
 | Swagger | http://localhost:3000/api-docs |
 | Health | http://localhost:3000/health |
 | Readiness (checks DB and Redis) | http://localhost:3000/health/ready |

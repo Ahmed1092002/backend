@@ -50,6 +50,7 @@ docker compose down
 | الخدمة | الرابط |
 | --- | --- |
 | API | http://localhost:3000 |
+| API through Nginx reverse proxy | http://localhost:8080 |
 | Swagger | http://localhost:3000/api-docs |
 | Health | http://localhost:3000/health |
 | Readiness (يفحص DB وRedis) | http://localhost:3000/health/ready |
@@ -120,6 +121,7 @@ docs/               # learning notes
 - [Outbox pattern](docs/outbox-pattern.md)
 - [Docker Compose guide](docs/docker-compose-guide.md)
 - [GitHub Actions guide](docs/github-actions-guide.md)
+- [Nginx reverse-proxy guide](docs/nginx-reverse-proxy-guide.md)
 - [Docker learning path](docs/docker-learning-path.md)
 - [Learning roadmap](docs/learning-roadmap.md)
 
