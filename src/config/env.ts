@@ -14,4 +14,6 @@ export const env = {
   mailPort: Number(process.env.MAIL_PORT ?? 1025),
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
   lowStockThreshold: Number(process.env.LOW_STOCK_THRESHOLD ?? 5),
+  // A display label used only to make load-balancing visible in this lab.
+  instanceName: process.env.INSTANCE_NAME ?? "local",
 };

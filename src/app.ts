@@ -29,6 +29,7 @@ app.get("/health", (_req, res) => {
   res.status(200).json({
     status: "ok",
     service: "mini-erp",
+    instance: env.instanceName,
     timestamp: new Date().toISOString(),
   });
 });

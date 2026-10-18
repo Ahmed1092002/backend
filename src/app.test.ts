@@ -36,6 +36,7 @@ test("GET /health returns the API health response", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.status, "ok");
   assert.equal(body.service, "mini-erp");
+  assert.equal(body.instance, "local");
   assert.equal(typeof body.timestamp, "string");
 });
 
