@@ -310,7 +310,80 @@ Invoke-RestMethod http://localhost:8080/health
 
 وجود `api-2` يتيح لـNginx الاستمرار في خدمة traffic عندما `api-1` تتوقف أو تبدأ مرة أخرى.
 
-## 11. ما الذي لا يفعله هذا؟
+## 11. لماذا نعمل Shutdown أصلًا؟
+
+من المهم التفريق بين **service** و**instance**:
+
+```text
+Mini ERP API service
+├── api-1 instance
+└── api-2 instance
+```
+
+الـservice هي التطبيق كفكرة وكود ومسؤولية. أما `api-1` و`api-2` فهما نسخ شغالة من نفس الـservice.
+
+عندما نقول إن `api-1` تعمل shutdown، لا يعني هذا أن النظام كله مات. معناه:
+
+```text
+هذه النسخة تحديدًا ستخرج من الخدمة الآن.
+```
+
+أشهر أسباب shutdown المخطط له:
+
+```text
+1. Deploy نسخة جديدة من الكود.
+2. Restart للـcontainer.
+3. Scale down: تقليل عدد الـreplicas.
+4. صيانة server.
+5. Kubernetes يستبدل Pod قديم.
+6. تنفيذ docker compose stop أو restart.
+```
+
+مثال deploy بدون إيقاف النظام كله:
+
+```text
+api-1 = version 1
+api-2 = version 1
+
+نريد version 2
+        ↓
+نشغّل api-3 بالنسخة الجديدة
+        ↓
+Nginx تراها جاهزة
+        ↓
+api-1 تعمل graceful shutdown
+        ↓
+نشغّل نسخة جديدة بدل api-1
+```
+
+إذن نحن لا نصلح الـprocess القديم وهو يستقبل traffic في العادة. نشغّل process/container جديد بالكود الجديد، ثم نُخرج القديم بهدوء:
+
+```text
+old instance → graceful shutdown
+new instance → starts and receives traffic
+```
+
+### Graceful Shutdown ليس Crash
+
+```text
+Graceful shutdown = قرار مخطط: التطبيق يستقبل SIGTERM ولديه وقت لينهي عمله.
+Crash             = bug أو نفاد memory أو قتل مفاجئ: process ماتت بلا وقت للتنظيف.
+```
+
+في crash، Nginx تحوّل requests إلى `api-2`، وDocker/Kubernetes يمكنهما تشغيل replacement. أما graceful shutdown فهو الحالة التي نملك فيها وقتًا لتنظيم الخروج.
+
+### ماذا لو كانت هناك instance واحدة فقط؟
+
+تحتاج graceful shutdown أيضًا عند deploy أو restart لحماية العمل الجاري، لكن سيكون هناك downtime قصير لأن لا توجد instance ثانية تستقبل requests.
+
+```text
+one instance + shutdown → API غير متاحة مؤقتًا
+two instances + shutdown → Nginx تستمر باستخدام النسخة الأخرى
+```
+
+هذا أحد الأسباب العملية لوجود replicas.
+
+## 12. ما الذي لا يفعله هذا؟
 
 - لا يضمن أن WebSocket لن تنقطع؛ العميل يحتاج reconnect.
 - لا يضمن active health checks من Nginx Open Source.
