@@ -44,6 +44,56 @@ type StockMovementPage = {
   total: number;
 };
 
+type StockMovementCursorPage = {
+  movements: {
+    id: string;
+    delta: number;
+    note: string | null;
+    actorId: string;
+    createdAt: Date;
+  }[];
+  nextCursor: string | null;
+};
+
+type StockMovementCursor = {
+  createdAt: string;
+  id: string;
+};
+
+function decodeStockMovementCursor(cursor: string): StockMovementCursor {
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(cursor, "base64url").toString("utf8"),
+    ) as unknown;
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("createdAt" in parsed) ||
+      !("id" in parsed) ||
+      typeof parsed.createdAt !== "string" ||
+      typeof parsed.id !== "string" ||
+      parsed.id.length === 0 ||
+      Number.isNaN(new Date(parsed.createdAt).getTime())
+    ) {
+      throw new Error("Invalid cursor data");
+    }
+
+    return { createdAt: parsed.createdAt, id: parsed.id };
+  } catch {
+    throw new AppError(400, "cursor is invalid");
+  }
+}
+
+function encodeStockMovementCursor(movement: {
+  createdAt: Date;
+  id: string;
+}): string {
+  return Buffer.from(
+    JSON.stringify({ createdAt: movement.createdAt.toISOString(), id: movement.id }),
+  ).toString("base64url");
+}
+
 export async function listProducts({
   offset,
   limit,
@@ -221,4 +271,47 @@ export async function listProductStockMovements(
   ]);
 
   return { movements, total };
+}
+
+export async function listProductStockMovementsByCursor(
+  productId: string,
+  { limit, cursor }: { limit: number; cursor?: string | undefined },
+): Promise<StockMovementCursorPage | undefined> {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { id: true },
+  });
+
+  if (!product) return undefined;
+
+  const decodedCursor = cursor ? decodeStockMovementCursor(cursor) : undefined;
+  const movements = await prisma.inventoryMovement.findMany({
+    where: {
+      productId,
+      ...(decodedCursor === undefined
+        ? {}
+        : {
+            OR: [
+              { createdAt: { lt: new Date(decodedCursor.createdAt) } },
+              {
+                createdAt: new Date(decodedCursor.createdAt),
+                id: { lt: decodedCursor.id },
+              },
+            ],
+          }),
+    },
+    // id makes the order stable when two movements share the same timestamp.
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
+  });
+
+  const hasMore = movements.length > limit;
+  const page = hasMore ? movements.slice(0, limit) : movements;
+  const lastMovement = page.at(-1);
+
+  return {
+    movements: page,
+    nextCursor:
+      hasMore && lastMovement ? encodeStockMovementCursor(lastMovement) : null,
+  };
 }

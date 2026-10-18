@@ -13,6 +13,7 @@ import {
   updateProduct,
   adjustStock,
   getStockMovements,
+  getStockMovementsByCursor,
 } from "./products.controller.js";
 import {
   createProductSchema,
@@ -20,6 +21,7 @@ import {
   updateProductSchema,
   adjustProductStockSchema,
   stockMovementsQuerySchema,
+  stockMovementsCursorQuerySchema,
 } from "./products.validation.js";
 
 export const productsRouter = Router();
@@ -35,6 +37,13 @@ productsRouter.get(
   requireRole("ADMIN", "MANAGER"),
   validate(stockMovementsQuerySchema, "query"),
   asyncHandler(getStockMovements),
+);
+productsRouter.get(
+  "/:id/stock-movements/cursor",
+  authenticate,
+  requireRole("ADMIN", "MANAGER"),
+  validate(stockMovementsCursorQuerySchema, "query"),
+  asyncHandler(getStockMovementsByCursor),
 );
 productsRouter.get("/:id", asyncHandler(getProductById));
 productsRouter.post("/", validate(createProductSchema), asyncHandler(createProduct));

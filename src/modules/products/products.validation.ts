@@ -37,6 +37,11 @@ export const stockMovementsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+export const stockMovementsCursorQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().trim().min(1).optional(),
+});
+
 export const listProductsQuerySchema = z.object({
   page: z.coerce
     .number()
@@ -72,4 +77,7 @@ export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type AdjustProductStockInput = z.infer<typeof adjustProductStockSchema>;
 export type StockMovementsQueryDto = z.infer<typeof stockMovementsQuerySchema>;
+export type StockMovementsCursorQueryDto = z.infer<
+  typeof stockMovementsCursorQuerySchema
+>;
 export type ListProductsQueryDto = z.infer<typeof listProductsQuerySchema>;

@@ -33,6 +33,11 @@ model InventoryMovement {
   // the newest movements first. The matching index already exists in the
   // original SQL migration; this keeps Prisma's schema in sync with it.
   @@index([productId, createdAt])
+
+  // Cursor pagination orders by createdAt and id. Keep the original index
+  // during this safe expansion; a later measurement can decide whether it is
+  // redundant enough to remove in a separate migration.
+  @@index([productId, createdAt, id])
 }
 
 model User {

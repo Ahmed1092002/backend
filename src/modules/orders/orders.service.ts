@@ -148,11 +148,6 @@ export async function confirmOrder(
     const sortedItems = [...orderToConfirm.items].sort((a, b) =>
       a.productId.localeCompare(b.productId),
     );
-    const stockChanges: {
-      product: ReturnType<typeof toProductEventPayload>;
-      crossedLowStock: boolean;
-    }[] = [];
-
     for (const item of sortedItems) {
       // This is an atomic "decrement only when enough stock exists" query. It
       // prevents two concurrent confirmations from making stock negative.
@@ -177,19 +172,27 @@ export async function confirmOrder(
           actorId,
         },
       });
+    }
 
-      // Read the new stock value so the future event can tell whether this order
-      // crossed the configured low-stock threshold.
-      const product = await tx.product.findUniqueOrThrow({
-        where: { id: item.productId },
-      });
-      stockChanges.push({
+    // Do not read one product per order item here (the N+1 pattern). All stock
+    // writes above have completed in this same transaction, so one batched read
+    // gets the final stock for every product needed by the outbox event.
+    const updatedProducts = await tx.product.findMany({
+      where: { id: { in: sortedItems.map((item) => item.productId) } },
+    });
+    const updatedProductById = new Map(
+      updatedProducts.map((product) => [product.id, product]),
+    );
+    const stockChanges = sortedItems.map((item) => {
+      const product = updatedProductById.get(item.productId)!;
+
+      return {
         product: toProductEventPayload(product),
         crossedLowStock:
           product.stock <= env.lowStockThreshold &&
           product.stock + item.quantity > env.lowStockThreshold,
-      });
-    }
+      };
+    });
 
     // Only mark the order confirmed after every stock update succeeded.
     const confirmedOrder = await tx.order.update({

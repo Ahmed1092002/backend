@@ -8,6 +8,7 @@ import {
   updateProductById,
   adjustProductStock,
   listProductStockMovements,
+  listProductStockMovementsByCursor,
 } from "./products.service.js";
 import type {
   CreateProductInput,
@@ -15,6 +16,7 @@ import type {
   UpdateProductInput,
   AdjustProductStockInput,
   StockMovementsQueryDto,
+  StockMovementsCursorQueryDto,
 } from "./products.validation.js";
 
 export const getProducts: RequestHandler = async (_req, res) => {
@@ -157,5 +159,27 @@ export const getStockMovements: RequestHandler = async (req, res) => {
   res.status(200).json({
     data: result.movements,
     meta: { total: result.total, page, limit },
+  });
+};
+
+export const getStockMovementsByCursor: RequestHandler = async (req, res) => {
+  const { id } = req.params;
+  const { limit, cursor } = res.locals.query as StockMovementsCursorQueryDto;
+
+  if (typeof id !== "string") {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const result = await listProductStockMovementsByCursor(id, { limit, cursor });
+
+  if (!result) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  res.status(200).json({
+    data: result.movements,
+    meta: { limit, nextCursor: result.nextCursor },
   });
 };
