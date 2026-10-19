@@ -156,12 +156,14 @@ kubectl rollout status deployment/mini-erp-api -n mini-erp
 
 لم نضف هنا بعد:
 
-- PostgreSQL وRedis manifests.
+- Redis manifest.
 - Worker deployment.
 - Ingress/API Gateway.
 - RabbitMQ.
 - persistent volumes.
 - image registry أو CI/CD deployment.
+
+تمت الآن إضافة PostgreSQL manifests وشرحها في [postgres-statefulset-explained.ar.md](postgres-statefulset-explained.ar.md). لا تزال Redis وmigration job وAPI deployment الكاملة هي الخطوات التالية.
 
 هذه خطوة مقصودة: نفهم API Deployment وService وprobes وrolling update قبل توسيع النظام.
 
