@@ -70,3 +70,32 @@
 - [ ] image registry خاص أو موثوق، وimage tags immutable.
 
 هذه ليست شهادة أن النظام آمن؛ هي checklist تساعدنا ألا ننسى الأساسيات عند الانتقال من local learning إلى production.
+
+## طريقة استخدامها قبل أول نشر
+
+لا نضع علامة صح لمجرد أننا قرأنا البند. لكل بند مهم نثبت النتيجة:
+
+```text
+1. حدّد environment: domain، frontend origin، database، secrets manager.
+2. ضع القيم السرية في environment/secret manager، وليس في compose أو Git.
+3. شغّل deployment على staging.
+4. جرّب login وrefresh وlogout وrequest محمية من browser حقيقي عبر HTTPS.
+5. افحص logs وmetrics: لا token/password ظاهر، وhealth/alerts سليمة.
+6. جرّب rollback وخطة restore للـdatabase في بيئة آمنة.
+7. وثّق من يملك access وكيف نغيّر secret عند التسرب.
+```
+
+أمثلة فحص عملية، لا تطبع secret نفسها:
+
+```powershell
+# تأكد أن Docker image لا تعمل root، عندما نجهز production image
+docker compose exec api id
+
+# راجع containers المكشوفة؛ PostgreSQL لا ينبغي أن تكون public بلا سبب
+docker compose ps
+
+# افحص vulnerabilities، ثم اقرأ النتيجة قبل أي upgrade
+npm audit
+```
+
+`npm audit` تقرير، وليس أمر إصلاح تلقائي. لا تستخدم `npm audit fix --force` كحل أعمى لأنه قد يكسر dependencies أو يرفع major versions.

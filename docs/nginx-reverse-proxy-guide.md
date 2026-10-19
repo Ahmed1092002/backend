@@ -436,3 +436,21 @@ http://localhost:3000/health
 ```
 
 في production عادة نغلق port API العام ونترك Nginx فقط أمام المستخدمين. أبقينا port `3000` مفتوحاً الآن للتعلّم والمقارنة.
+
+## تجربة عملية: Proxy وLoad Balancing
+
+```powershell
+docker compose up -d --build nginx api api-2
+docker compose exec nginx nginx -t
+Invoke-WebRequest -UseBasicParsing http://localhost:8080/health
+```
+
+الطلب على `8080` لا يصل إلى Express مباشرة؛ Nginx تقرأ `upstream mini_erp_api` ثم تمرّره إلى `api` أو `api-2`. أوقف نسخة واحدة كتجربة محلية:
+
+```powershell
+docker compose stop api
+Invoke-WebRequest -UseBasicParsing http://localhost:8080/health
+docker compose start api
+```
+
+إذا نجح الطلب والنسخة الثانية healthy، فقد رأيت failover عمليًا. لا تترك instance متوقفة بعد التجربة، ولا تعتبر ذلك اختبارًا كاملًا للـproduction.

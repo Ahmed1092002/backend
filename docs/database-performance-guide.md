@@ -179,3 +179,22 @@ sortOrder = asc
 - اختر fields المطلوبة فقط.
 - PrismaClient واحدة لكل process.
 - راقب metrics قبل وبعد optimization.
+
+## 11. طبّق قياس الأداء بنفسك
+
+لا تضف index لأننا "نظن" أنها مفيدة. خذ query حقيقية، مثل movements لمنتج واحد:
+
+```sql
+EXPLAIN ANALYZE
+SELECT id, product_id, delta, created_at
+FROM "InventoryMovement"
+WHERE product_id = 'PUT_PRODUCT_UUID_HERE'
+ORDER BY created_at DESC, id DESC
+LIMIT 20;
+```
+
+شغّلها من PostgreSQL client أو Prisma Studio/SQL tool متصل بقاعدة البيانات. قارن `actual time` ووجود `Index Scan` قبل وبعد index المناسبة. لا تنسخ index عشوائيًا: يجب أن تخدم ترتيب وفلترة query نفسها.
+
+ثم جرّب cursor endpoint: اطلب `limit=2`، خذ cursor من response، وأرسلها في الطلب التالي. قارن ذلك مع offset في table فيها بيانات كثيرة؛ cursor لا تجعل database تعد الصفوف التي قبل الصفحة في كل مرة.
+
+وأخيرًا راقب metrics/logs قبل وبعد التعديل. إذا لم يتحسن زمن أو عدد queries، ارجع التغيير بدل إضافة تعقيد بلا فائدة.

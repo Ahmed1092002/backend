@@ -416,3 +416,37 @@ Namespace = مساحة منظمة داخل cluster.
 ```
 
 بعد تشغيل cluster، الخطوة التالية هي فحص context، ثم تجهيز PostgreSQL وRedis، ثم تطبيق الـAPI Deployment ومشاهدة الـPods والـrolling update عمليًا.
+
+## 15. تجربة آمنة على الـcluster الحالي
+
+أنت بالفعل وصلت لنتيجة مثل:
+
+```text
+desktop-control-plane   Ready   control-plane
+```
+
+وهذا يثبت أن Kubernetes تعمل، لكنه لا يثبت أن مشروعنا جاهز للنشر. افصل بين المرحلتين:
+
+```text
+Cluster Ready
+≠ PostgreSQL/Redis موجودتان
+≠ API image مرئية للـcluster
+≠ Secret صحيحة
+≠ API Pods Ready
+```
+
+الأوامر الأساسية التي ستستخدمها طوال التعلم:
+
+```powershell
+# ما الذي يعمل الآن؟
+kubectl get all -n mini-erp
+
+# لماذا Pod فشلت أو لم تصبح Ready؟
+kubectl describe pod POD_NAME -n mini-erp
+kubectl logs POD_NAME -n mini-erp
+
+# راقب rollout وليس فقط الأمر الذي بدأها
+kubectl rollout status deployment/mini-erp-api -n mini-erp
+```
+
+لا نشغّل deployment قبل dependencies عمدًا. الهدف التالي هو بناء PostgreSQL وRedis manifests صغيرة وفهمها، ثم نصل API بها. عندها نطبق ونشاهد كل خطوة بدل حصول أخطاء configuration كثيرة في نفس اللحظة.

@@ -100,6 +100,29 @@ failure 3 → retry after ~4s
 
 الفكرة من exponential backoff: لا نضرب SMTP أو dependency واقعة بطلبات سريعة متكررة.
 
+### شرح code إضافة job
+
+من `src/jobs/email.queue.ts`:
+
+```ts
+return getWelcomeQueue().add(
+  "welcome",
+  { userId, name, email },
+  {
+    jobId: `welcome:${userId}`,
+    attempts: 3,
+    backoff: { type: "exponential", delay: 1000 },
+  },
+);
+```
+
+- `getWelcomeQueue()` تنشئ/تعيد Queue اسمها `welcome-emails`. استخدام `??=` يعني: أنشئها مرة واحدة فقط عند أول job، لا عند كل register request.
+- `add("welcome", data, options)` تكتب job في Redis؛ لا ترسل email الآن.
+- `data` تحتوي أقل معلومات يحتاجها worker؛ لا نضع password أو access token.
+- `jobId: welcome:<userId>` يمنع job ثانية لنفس welcome email عند retry أو تكرار event.
+- `attempts: 3` يعني المحاولة الأصلية + محاولات BullMQ حتى الحد المحدد.
+- `exponential` يبدأ بـ1000ms ثم يطول بين المحاولات؛ لا نعمل loop سريع يرهق mail server.
+
 ## 5. Idempotency للـJobs
 
 Welcome email تستخدم job ID مثل:
@@ -186,6 +209,36 @@ API 1 emit
 
 لهذا لدينا Redis publisher وRedis subscriber منفصلين في `socket.ts`. هذه connections ليست Redis cache client ولا BullMQ connection.
 
+### شرح تهيئة Socket.IO من code
+
+```ts
+const nextPubClient = new Redis(env.redisUrl, { lazyConnect: true });
+const nextSubClient = nextPubClient.duplicate();
+await Promise.all([nextPubClient.connect(), nextSubClient.connect()]);
+
+const socketServer = new Server(server, {
+  cors: { origin: env.clientOrigin, credentials: true },
+});
+socketServer.adapter(createAdapter(nextPubClient, nextSubClient));
+```
+
+- `pubClient` تنشر event إلى Redis؛ `subClient` تسمع events المنشورة. Pub/Sub يحتاج اتصالين مستقلين لأن connection التي دخلت وضع subscribe لا تستخدم كـconnection عادية.
+- `lazyConnect: true` يمنع فتح الاتصال بمجرد import للملف؛ نتحكم في وقت الاتصال داخل `initializeSocket`.
+- `Promise.all` تجعل API لا تعلن Socket.IO جاهزة قبل اتصال الاثنين.
+- `new Server(server, ...)` تربط Socket.IO بنفس HTTP server الخاصة بـExpress، فلا نفتح port جديد.
+- `createAdapter(...)` هو السطر الذي يجعل `io.emit` من API-1 يصل إلى clients المتصلين بـAPI-2.
+
+ثم authentication:
+
+```ts
+const token = socket.handshake.auth.token;
+const decoded = jwt.verify(token, env.jwtSecret);
+socket.data.user = { id: decoded.sub, role: decoded.role as UserRole };
+socket.join(`user:${decoded.sub}`);
+```
+
+نفس access JWT المستخدمة في HTTP تتحقق هنا. لا نقبل `userId` يرسلها browser كحقيقة. بعد `join`، `io.to("user:<id>").emit(...)` تذهب فقط لمستخدم ذلك الـroom.
+
 ## 8. Sticky Sessions وRealtime
 
 Redis adapter تنقل events بين instances، لكنها لا تكفي وحدها لـSocket.IO polling.
@@ -229,3 +282,22 @@ Nginx تستخدم `ip_hash` في learning setup. راجع [nginx-reverse-proxy-
 | Pub/Sub adapter | رسائل Socket.IO اللحظية بين instances | event لحظي قد لا يصل أثناء الانقطاع؛ لا نعتمد عليه كـdatabase. |
 
 قد يكون Redis server واحدًا في التعلم، لكن clients/connections منفصلة لأن protocols والمسؤوليات مختلفة. في production يمكن فصلها حسب الحمل والاعتمادية.
+
+## 12. طبّق Redis وWorker وRealtime بنفسك
+
+```powershell
+# شغّل Redis وAPI والـworker من compose
+docker compose up -d redis api worker
+
+# راقب log الـworker في terminal منفصلة
+docker compose logs -f worker
+
+# افحص أن Redis متاحة
+docker compose exec redis redis-cli ping
+```
+
+نفّذ register لمستخدم جديد. الـAPI يجب أن ترجع response أولًا، ثم ترى في worker log أن welcome-email job عولجت. هذا هو الدليل أن HTTP request لم تنتظر email.
+
+لـcache، اطلب products مرتين ثم راقب API logs/Redis keys حسب أدواتك. أول request تعمل database read ثم cache set؛ الثانية ينبغي أن تكون cache hit. عدّل product ثم اطلبها مجددًا: يجب أن ترى القيمة الجديدة لأن invalidation أزالت القيمة القديمة.
+
+لـSocket.IO، شغّل frontend أو client Socket.IO، أرسل access token في `auth.token`، ثم عدّل product. client تستقبل `product:updated`. لو شغّلت API-1 وAPI-2، Redis adapter تسمح بوصول event حتى لو client متصلة بالنسخة الأخرى.

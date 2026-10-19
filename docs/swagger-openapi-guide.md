@@ -88,3 +88,42 @@ new status code
 ## 6. حدود Swagger
 
 Swagger لا تشرح كل business rule العميقة، مثل transaction وOutbox. هذه مكانها docs architecture. Swagger تشرح كيف يستهلك client الـAPI.
+
+## 7. طبّقها بنفسك: إضافة endpoint موثّق
+
+لنفرض أننا أضفنا endpoint لقراءة product واحدة. الترتيب الصحيح ليس "Swagger أولًا":
+
+```text
+1. نكتب Zod schema للـparams.
+2. نضيف route + controller + service.
+3. نضيف path إلى docs/products.docs.ts.
+4. نفتح /api-docs ونجربه.
+```
+
+مثال OpenAPI مبسط داخل documentation الخاصة بالـproducts:
+
+```ts
+"/api/products/{id}": {
+  get: {
+    summary: "Get one product",
+    parameters: [{
+      name: "id",
+      in: "path",
+      required: true,
+      schema: { type: "string", format: "uuid" },
+    }],
+    responses: {
+      200: { description: "Product found" },
+      404: { description: "Product not found" },
+    },
+  },
+}
+```
+
+بعد تشغيل API، افتح:
+
+```text
+http://localhost:3000/api-docs
+```
+
+اضغط **Try it out**، اكتب `id` حقيقية، ثم **Execute**. إذا Swagger قالت إن response هو `200` لكن controller يرجع shape أو status مختلف، فهذه علامة أن contract غير متزامن ويجب تحديث أحدهما.

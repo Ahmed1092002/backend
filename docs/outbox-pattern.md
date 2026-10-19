@@ -260,3 +260,23 @@ Redis ممتاز للـcache والqueues، لكنه ليس بديلاً عن ا
 6. أضف logs وmetric/alert مناسبين إذا كان event مهمّاً.
 
 الخلاصة: الـOutbox Pattern لا يجعل الـsystem معصوماً من الفشل؛ هو يحوّل فشل “الحدث ضاع ولا نعرف” إلى record محفوظ يمكن retry ومراقبته وإصلاحه.
+
+## تجربة عملية: كيف تتبع event من البداية للنهاية؟
+
+```text
+1. أنشئ order ثم confirm لها.
+2. transaction تحفظ Order + InventoryMovement + OutboxEvent معًا.
+3. بعد commit، راقب process الـoutbox في logs.
+4. handler يمسح cache ويرسل Socket event ويضيف low-stock job إذا لزم.
+5. worker تعالج job لاحقًا.
+```
+
+شغّل النظام ثم راقب logs منفصلة:
+
+```powershell
+docker compose up -d postgres redis api worker
+docker compose logs -f api
+docker compose logs -f worker
+```
+
+إذا فشل side effect، لا تعِد confirm order يدويًا؛ order اكتملت بالفعل. افحص OutboxEvent وحالة retry/last error، ثم أصلح السبب ودع processor تعيد المحاولة أو أعد تشغيل الحدث بطريقة مضبوطة. هذه بالضبط فائدة الـOutbox.

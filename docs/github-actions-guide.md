@@ -183,3 +183,45 @@ lint:
 جرّب أهم commands محلياً قبل push: `npm ci` ثم `npx prisma generate` ثم `npm run typecheck` ثم `npm test` ثم `docker build -t mini-erp-api .` ثم `docker compose config --quiet`.
 
 لو نجحت محلياً وفشلت في CI، قارن environment: Linux مقابل Windows، variables ناقصة، أو file لم يدخل Git.
+
+## كيف تقرأ workflow الموجودة فعلًا
+
+```yaml
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+```
+
+`on` هو trigger: كل push وpull request تشغّل workflow. `check` اسم job، و`ubuntu-latest` VM Linux نظيفة من GitHub وليست جهازك ولا server production.
+
+```yaml
+- uses: actions/checkout@v4
+- uses: actions/setup-node@v4
+  with:
+    node-version: 22
+    cache: npm
+- run: npm ci
+- run: npx prisma generate
+- run: npm run typecheck
+- run: npm test
+```
+
+`checkout` تنزّل commit الحالية. `setup-node` تثبّت Node 22، و`cache: npm` تسرّع download فقط. `npm ci` تثبّت ما في lockfile بالضبط. بعدها `prisma generate` تنتج Prisma Client التي يحتاجها TypeScript، ثم typecheck ثم tests. أي `run` تفشل توقف job؛ لا يكمل ما بعدها.
+
+## 10. طبّق CI بنفسك
+
+قبل push نفّذ بالترتيب نفسه الموجود في workflow:
+
+```powershell
+npm ci
+npx prisma generate
+npm run typecheck
+npm test
+docker build -t mini-erp-api .
+docker compose config --quiet
+```
+
+ثم افتح `.github/workflows/ci.yml` واقرأه كبرنامج: `on` متى يبدأ، `jobs` أعمال مستقلة، `steps` أوامر متتابعة داخل job، و`needs` يجعل job تنتظر أخرى. بعد push افتح تبويب **Actions** في GitHub: الأخضر يعني كل command نجح؛ الأحمر لا يعني أن GitHub غامضة، بل افتح step الفاشلة واقرأ command وoutput نفسه.

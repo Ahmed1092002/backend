@@ -602,3 +602,21 @@ stdout logs          /metrics endpoint
 - business metrics: عدد orders المؤكدة أو عدد المنتجات low stock.
 
 قاعدة مهمة: **Logs تشرح حادثة، metrics تكشف الاتجاه، alerts تناديك عندما يحتاج الاتجاه انتباهاً.**
+
+## 13. طبّق monitoring stack بنفسك
+
+```powershell
+docker compose up -d --build prometheus alertmanager grafana api api-2
+docker compose ps
+```
+
+ثم افتح:
+
+```text
+Prometheus:   http://localhost:9090
+Alertmanager: http://localhost:9093
+Grafana:      http://localhost:3001
+API metrics:  http://localhost:3000/metrics
+```
+
+في Prometheus جرّب query مثل `up`، ثم ابحث عن targets الخاصة بـ`api` و`api-2`. إذا target ليست `UP`، ابدأ من `docker compose ps` ثم logs الـAPI؛ لا تبدأ من Grafana. في Grafana أضف/افتح Prometheus datasource ثم اعرض request count أو latency. الترتيب التشخيصي الصحيح: target → metric → dashboard → alert.

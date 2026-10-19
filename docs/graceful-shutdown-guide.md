@@ -391,3 +391,18 @@ two instances + shutdown → Nginx تستمر باستخدام النسخة ال
 - لا يحول المشروع إلى Kubernetes أو microservices.
 
 هدف هذه الخطوة محدود وواضح: إخراج API instance من الخدمة بطريقة منظمة وآمنة قدر الإمكان قبل استبدالها.
+
+## 13. جرّب graceful shutdown بنفسك
+
+```powershell
+docker compose up -d --build api api-2 nginx
+docker compose logs -f api
+```
+
+في terminal ثانية شغّل request متكرر إلى Nginx، ثم أعد إنشاء نسخة واحدة فقط:
+
+```powershell
+docker compose up -d --no-deps --force-recreate api
+```
+
+في logs ابحث عن ترتيب: استقبال `SIGTERM` → إغلاق HTTP server للطلبات الجديدة → انتظار العمل الجاري → إغلاق Socket/Prisma → exit. أثناء ذلك تظل `api-2` تخدم requests. لا تختبره بإيقاف النسختين معًا؛ ذلك ليس rolling deployment.

@@ -164,3 +164,33 @@ kubectl rollout status deployment/mini-erp-api -n mini-erp
 - image registry أو CI/CD deployment.
 
 هذه خطوة مقصودة: نفهم API Deployment وService وprobes وrolling update قبل توسيع النظام.
+
+## 10. طبّق Kubernetes بعد تجهيز dependencies
+
+بما أن الـcluster عندك أصبحت جاهزة، ابدأ دائمًا بالفحص لا بالـapply:
+
+```powershell
+kubectl config current-context
+kubectl get nodes
+kubectl get namespace mini-erp
+```
+
+لا تطبّق `api-deployment.yaml` وحده الآن؛ الـAPI تحتاج `DATABASE_URL` وRedis تعملان. بعد أن نضيف manifests للـPostgreSQL وRedis وSecret محلية، سيكون ترتيب التطبيق:
+
+```powershell
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/api-configmap.yaml
+# أنشئ Secret محلية من api-secret.example.yaml، ولا ترفعها إلى Git
+kubectl apply -f k8s/api-deployment.yaml
+kubectl apply -f k8s/api-service.yaml
+```
+
+ثم راقب بدل التخمين:
+
+```powershell
+kubectl get pods -n mini-erp -w
+kubectl describe deployment mini-erp-api -n mini-erp
+kubectl logs deployment/mini-erp-api -n mini-erp --tail=100
+```
+
+`-w` تعني watch: سترى Pod تُنشأ، تمر readiness، ثم تصبح `Running`. إذا بقيت `Pending` أو `CrashLoopBackOff`، لا تغيّر YAML عشوائيًا؛ ابدأ بـ`describe pod` و`logs` لمعرفة السبب الفعلي.

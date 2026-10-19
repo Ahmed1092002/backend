@@ -63,6 +63,25 @@ Authorization: Bearer <access-token>
 
 لا نضع access token في URL أو query string أو logs.
 
+### الكود الذي ينشئ الـaccess token
+
+من `src/modules/auth/auth.service.ts`:
+
+```ts
+function createAccessToken(userId: string, role: string) {
+  return jwt.sign({ sub: userId, role }, env.jwtSecret, {
+    expiresIn: "15m",
+  });
+}
+```
+
+- `jwt.sign(...)` يوقّع payload؛ أي client تستطيع **قراءة** JWT لكنها لا تستطيع تغيير `role` أو `sub` بدون `JWT_SECRET`.
+- `{ sub: userId, role }` هما claims التي يحتاجها backend في كل request. `sub` اسم standard لمعرف صاحب الـtoken.
+- `env.jwtSecret` لا تصل إلى frontend ولا تدخل Git؛ هي التي تجعل signature قابلة للتحقق.
+- `expiresIn: "15m"` يجعل الضرر محدودًا لو access token تسربت.
+
+الدالة تستقبل `role` من user التي قرأناها من database في login، وليس من request body. لو أخذناها من body، يمكن لأي client أن ترسل `role: "ADMIN"`.
+
 ## 5. `authenticate` Middleware
 
 `src/middleware/authnticate.ts`:
@@ -82,6 +101,38 @@ Authorization: Bearer <access-token>
 res.locals.user.id
 res.locals.user.role
 ```
+
+### شرح middleware من الكود
+
+```ts
+const authHeader = req.headers.authorization;
+const token = authHeader.split(" ")[1];
+const barerToken = authHeader.split(" ")[0];
+
+if (barerToken !== "Bearer" || !token) {
+  return res.status(401).json({ error: "Invalid authorization header format" });
+}
+```
+
+الـheader المطلوبة شكلها `Authorization: Bearer eyJ...`:
+
+- `split(" ")[0]` يجب أن تكون `Bearer`، وإلا لا نعرف protocol الذي استخدمه client.
+- `split(" ")[1]` هي JWT نفسها.
+- نرجع `401` قبل أي business logic، لأن caller لم تثبت هويتها بعد.
+
+ثم الجزء الحاسم:
+
+```ts
+const decoded = jwt.verify(token, env.jwtSecret);
+
+res.locals.user = {
+  id: decoded.sub,
+  role: decoded.role as UserRole,
+};
+next();
+```
+
+`jwt.verify` يفحص signature ووقت الانتهاء. لو token موقعة بسر مختلف أو منتهية، يرمي error فنرجع `401`. بعد التحقق فقط نحفظ `id` و`role` في `res.locals`: هذه مساحة مؤقتة للـrequest الحالية، فتقرأها `requireRole` ثم controller. `next()` تعني "انتهت هذه middleware، اذهب للتي بعدها".
 
 ## 6. Roles و`requireRole`
 
@@ -184,6 +235,33 @@ Browser sends HTTP-only refresh cookie
 
 بصيغة database، الـrepository لا يعمل "find ثم delete ثم insert" على ثلاث requests عادية؛ يحاول atomic update/delete على الـhash القديمة ويضيف الجلسة الجديدة. النتيجة تمنع أن requestين يستهلكان نفس refresh token بنجاح.
 
+### شرح دالة `refresh`
+
+```ts
+const tokenHash = hashRefreshToken(refreshToken);
+const storedToken = await authRepository.findRefreshTokenByHash(tokenHash);
+
+if (!storedToken) return null;
+if (storedToken.expiresAt <= new Date()) {
+  await authRepository.deleteRefreshTokenByHash(tokenHash);
+  return null;
+}
+```
+
+لا نبحث أبدًا بالـraw token؛ نحسب hash أولًا ثم نبحث عن الصف المخزن. إن لم يوجد الصف: token ملغاة أو مزيفة. إن انتهت: نمسح الصف القديم حتى لا تتراكم sessions غير مفيدة.
+
+```ts
+const nextSession = createRefreshSessionData(storedToken.user.id);
+const wasRotated = await authRepository.rotateRefreshToken(
+  tokenHash,
+  nextSession.data,
+);
+
+if (!wasRotated) return null;
+```
+
+هنا ننشئ raw token جديدة وhash جديدة، ثم نحاول استهلاك القديمة atomically. `wasRotated` قد تكون `false` لو request أخرى سبقتنا واستهلكت القديمة؛ لذلك لا نصدر access token ثانية بلا session صالحة.
+
 ## 9. Logout
 
 `POST /api/auth/logout`:
@@ -254,3 +332,35 @@ POST /api/auth/login
 - راقب failed login attempts، ولا تسجل passwords أو tokens أو cookies في logs.
 - اجعل secrets خارج Git وغيّرها عند الاشتباه بتسرب.
 - راجع CORS وcookie domain وSameSite بعد معرفة domain الحقيقي للـfrontend.
+
+## 13. طبّق Auth بنفسك
+
+### 1) سجّل مستخدمًا ثم اعمل login
+
+```powershell
+$body = @{ name = "Ali"; email = "ali@example.com"; password = "StrongPass123" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/auth/register -ContentType application/json -Body $body
+
+$login = @{ email = "ali@example.com"; password = "StrongPass123" } | ConvertTo-Json
+Invoke-WebRequest -Method Post -Uri http://localhost:3000/api/auth/login -ContentType application/json -Body $login -SessionVariable session
+```
+
+الـresponse تحتوي `accessToken`، و`$session` يحتفظ بـHTTP-only refresh cookie مثل browser.
+
+### 2) استعمل access token مع endpoint محمية
+
+```powershell
+$token = (Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/auth/login -ContentType application/json -Body $login).accessToken
+Invoke-RestMethod -Uri http://localhost:3000/api/auth/me -Headers @{ Authorization = "Bearer $token" }
+```
+
+غيّر كلمة `Bearer` أو احذف الـheader لترى `401`. استعمل account لديها role غير مسموحة في endpoint إداري لترى `403`.
+
+### 3) جرّب refresh وlogout
+
+```powershell
+Invoke-WebRequest -Method Post -Uri http://localhost:3000/api/auth/refresh -WebSession $session
+Invoke-WebRequest -Method Post -Uri http://localhost:3000/api/auth/logout -WebSession $session
+```
+
+بعد logout، refresh بالـsession نفسها يجب أن تفشل. هذا يثبت أن logout أزالت session من database، وليس فقط cookie من المتصفح.

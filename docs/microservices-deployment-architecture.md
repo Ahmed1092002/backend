@@ -330,3 +330,17 @@ Modular Monolith
 → extract one small service as a real experiment
 → Kubernetes after understanding the underlying problems
 ```
+
+## تجربة ذهنية قبل استخراج service
+
+لا تبدأ بنقل folder إلى container وتسميته microservice. خذ module مثل notifications واسأل بالترتيب:
+
+```text
+1. ما data التي تملكها وحدها؟
+2. ما API أو event contract الذي تحتاجه باقي الخدمات؟
+3. هل ستملك database/schema خاصًا بها؟
+4. كيف تتعامل مع retry، duplicate event، ووقت توقفها؟
+5. كيف تنشرها وتراقبها وتعمل لها rollback مستقلة؟
+```
+
+إذا الإجابات ما زالت "ستقرأ نفس tables مباشرة" و"سأناديها HTTP من كل مكان"، فابقَ Modular Monolith. ابدأ extraction صغيرة مثل email/notification consumer عبر event؛ لا تبدأ Orders أو Auth لأنهما يملكان business consistency حساسة.

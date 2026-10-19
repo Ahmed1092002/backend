@@ -29,6 +29,43 @@ Invoice       → متاحة فقط بعد CONFIRMED
 
 Order item يحتفظ بـ`productName` و`unitPrice` snapshot. إذا تغير سعر المنتج غدًا، order القديمة لا تتغير.
 
+### شرح create order من الكود
+
+```ts
+const products = await tx.product.findMany({
+  where: { id: { in: input.items.map((item) => item.productId) } },
+});
+
+if (products.length !== input.items.length) {
+  throw new AppError(404, "One or more products were not found");
+}
+```
+
+`tx` هو Prisma transaction client، لذلك كل query بعده جزء من نفس transaction. نقرأ products من database باستخدام IDs التي أرسلها client. لا نقرأ price من client. مقارنة `length` تمنع إنشاء order فيها product ID غير موجودة.
+
+```ts
+const items = input.items.map((item) => {
+  const product = productById.get(item.productId)!;
+  return {
+    productId: product.id,
+    productName: product.name,
+    unitPrice: product.price,
+    quantity: item.quantity,
+  };
+});
+```
+
+هذا يصنع snapshots: `productName` و`unitPrice` وقت إنشاء order. علامة `!` تقول لـTypeScript إن product موجودة؛ نحن أثبتنا ذلك في check السابقة.
+
+```ts
+const total = items.reduce(
+  (sum, item) => sum.add(item.unitPrice.mul(item.quantity)),
+  new Prisma.Decimal(0),
+);
+```
+
+نستخدم `Prisma.Decimal`، لا JavaScript `number`، لأن money لا يناسبها أخطاء floating point مثل `0.1 + 0.2`.
+
 ## 3. Confirm Order داخل Transaction
 
 `confirmOrder` تعمل داخل Prisma transaction واحدة:
@@ -78,6 +115,23 @@ read stock → if enough → update later
 لأن requestين متزامنتين قد تقرآن نفس stock قبل التحديث.
 
 نرتب items حسب product ID قبل التحديث. هذا يقلل احتمال deadlock عندما orderين تؤكدان نفس المنتجات بترتيب مختلف.
+
+### السطر الذي يمنع السباق بين الطلبات
+
+```ts
+const updated = await tx.product.updateMany({
+  where: { id: item.productId, stock: { gte: item.quantity } },
+  data: { stock: { decrement: item.quantity } },
+});
+
+if (updated.count === 0) {
+  throw new AppError(409, "Insufficient stock");
+}
+```
+
+Prisma تحوّل هذا منطقيًا إلى SQL واحدة: "حدّث stock فقط إذا كانت الكمية الحالية كافية". لذلك requestين لا تستطيعان أن تقرآ stock نفسها ثم تخصماها معًا. `updated.count` تكون 1 عند النجاح و0 لو product غير موجودة أو stock أقل من المطلوبة؛ في هذا flow product معروفة، إذن 0 معناها stock غير كافية.
+
+لو أي item ترمي error داخل `$transaction`، Prisma تعمل rollback لكل ما قبلها: لا order تصبح `CONFIRMED` ولا حركة stock جزئية تبقى محفوظة.
 
 ## 5. InventoryMovement
 
@@ -231,6 +285,20 @@ queue low-stock email
 
 تفاصيل الـOutbox موجودة في [outbox-pattern.md](outbox-pattern.md).
 
+### لماذا نحفظ event قبل نهاية transaction؟
+
+```ts
+const confirmedOrder = await tx.order.update({
+  where: { id: orderId },
+  data: { status: "CONFIRMED" },
+  include: { items: true },
+});
+
+await saveOrderConfirmedEvent(tx, { order, stockChanges });
+```
+
+`saveOrderConfirmedEvent` تستقبل `tx` نفسها، لا Prisma client عامة. لذلك الـevent row تدخل مع stock/order في commit واحد. لو process ماتت بعد commit وقبل إرسال Socket أو email، تبقى event في database ويستطيع outbox processor إكمال side effects لاحقًا.
+
 ## 11. أهم قواعد المراجعة
 
 - لا تثق في price أو name من client.
@@ -239,3 +307,35 @@ queue low-stock email
 - لا تعمل `read then write` للـstock عندما يوجد concurrency.
 - لا تعيد POST create order بلا idempotency key.
 - لا تعتبر outbox event "مرة واحدة فقط"؛ consumers يجب أن تكون idempotent.
+
+## 12. طبّق الـOrder flow بنفسك
+
+### 1) أنشئ order من products موجودة
+
+احصل أولًا على access token، ثم أنشئ UUID جديدة للمحاولة التجارية الواحدة. لا تعيد استخدام UUID لطلب جديد يريده المستخدم فعلًا.
+
+```powershell
+$token = "PUT_ACCESS_TOKEN_HERE"
+$key = [guid]::NewGuid().ToString()
+$body = @{ items = @(@{ productId = "PUT_PRODUCT_UUID_HERE"; quantity = 2 }) } | ConvertTo-Json -Depth 5
+
+$order = Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/orders `
+  -ContentType application/json `
+  -Headers @{ Authorization = "Bearer $token"; "Idempotency-Key" = $key } `
+  -Body $body
+```
+
+النتيجة order بحالة `DRAFT`. لم يتغير stock بعد.
+
+### 2) أثبت idempotency
+
+أعد **نفس** command السابق بنفس `$key` وbody. يجب أن تستعيد order نفسها بدل إنشاء order ثانية. ثم غيّر `quantity` واترك `$key` نفسها: يجب أن تستقبل `409` لأن هذا ليس retry لنفس الطلب.
+
+### 3) أكّد order ثم راقب النتيجة
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:3000/api/orders/$($order.id)/confirm" `
+  -Headers @{ Authorization = "Bearer $token" }
+```
+
+بعدها افحص product وحركة المخزون. المتوقع: `stock` نقصت مرة واحدة، و`InventoryMovement` تسجل `delta` سالبة، وorder أصبحت `CONFIRMED`. لو stock غير كافية فالمتوقع `409` ولا يتغير أي صف بسبب transaction.

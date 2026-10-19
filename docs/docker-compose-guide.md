@@ -219,3 +219,44 @@ postgres healthy
 ## 10. الخلاصة
 
 Docker Compose ليس production deployment بنفسه. هو طريقة repeatable لتشغيل services متعددة مع network وvolumes وconfig. هذه المفاهيم ستقابلها لاحقاً في Kubernetes أو cloud، حتى لو الأدوات اختلفت.
+
+## كيف تقرأ YAML الموجود عندنا
+
+```yaml
+postgres:
+  image: postgres:16-alpine
+  ports: ["5433:5432"]
+  volumes:
+    - postgres_data:/var/lib/postgresql/data
+```
+
+`postgres` هو hostname داخل Compose network. `image` تعني Docker ستشغّل PostgreSQL الجاهزة. في `5433:5432` أول port لجهازك والثاني للـcontainer؛ API لا تستخدم `localhost:5433` بل `postgres:5432`. الـvolume تحفظ data خارج container، لذلك recreate لا تمسح database.
+
+```yaml
+api:
+  depends_on:
+    postgres:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+```
+
+هذا ترتيب startup: API لا تبدأ قبل أن PostgreSQL تقبل connections وmigration تنتهي. ليس health monitor دائمًا بعد التشغيل؛ لذلك ما زلنا نحتاج readiness endpoint وlogs.
+
+## 11. طبّق Compose بنفسك
+
+```powershell
+# ابدأ كل النظام وابنِ images عند تغير code
+docker compose up -d --build
+
+# اعرض حالة services والـhealth checks
+docker compose ps
+
+# شاهد سبب فشل service محددة
+docker compose logs --tail 100 migrate
+
+# أوقف containers فقط؛ لا تحذف database volume
+docker compose down
+```
+
+افتح `docker-compose.yml` وطبّق القراءة بهذا الترتيب: `services` = containers، `environment` = config، `ports` = من جهازك إلى container، `volumes` = بيانات باقية، `depends_on` = ترتيب startup. جرّب `docker compose config --quiet` بعد كل تعديل YAML؛ هو يكتشف indentation وCompose syntax قبل التشغيل.

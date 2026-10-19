@@ -375,3 +375,33 @@ kubectl get nodes
 ```
 
 ثم نضيف dependencies ونطبق الـresources بهدوء.
+
+## 13. كيف نختبر الـDeployment وrolling update لاحقًا؟
+
+بعد أن تكون API Pods جاهزة، لا نعمل restart عشوائيًا. غيّر image tag فقط ثم راقب controller:
+
+```powershell
+kubectl set image deployment/mini-erp-api api=mini-erp-api:NEW_TAG -n mini-erp
+kubectl rollout status deployment/mini-erp-api -n mini-erp
+kubectl get pods -n mini-erp -w
+```
+
+الـDeployment في هذا المشروع تضبط:
+
+```yaml
+maxUnavailable: 0
+maxSurge: 1
+```
+
+فالمتوقع عمليًا:
+
+```text
+Pod قديمة Ready
+→ Kubernetes تنشئ Pod جديدة
+→ readinessProbe تنجح
+→ Service تبدأ إرسال traffic للـPod الجديدة
+→ Kubernetes تنهي Pod قديمة
+→ تكرر حتى كل Pods على NEW_TAG
+```
+
+لو الـreadinessProbe فشلت، Kubernetes لا تعتبر Pod الجديدة جاهزة ولا تسحب القديمة بسبب `maxUnavailable: 0`. هذا هو الجزء الذي كان يدويًا في Docker Compose وصار controller داخلي في Kubernetes.

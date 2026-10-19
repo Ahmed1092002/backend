@@ -126,6 +126,37 @@ async controller throws/rejects
 
 لذلك لا نكتب `try/catch` في كل controller فقط لإرسال error إلى middleware نفسها. نكتب catch محليًا فقط إذا كان لدينا recovery أو تحويل error محدد له معنى business.
 
+### الكود الذي يلتقط أخطاء controllers
+
+من `src/middleware/async-handler.ts`:
+
+```ts
+export function asyncHandler(handler: RequestHandler): RequestHandler {
+  return (req, res, next) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
+}
+```
+
+- `handler` هي controller async مثل `getProducts`.
+- `Promise.resolve(...)` تجعل الدالة تعمل سواء أعادت Promise أو لم تعد.
+- `.catch(next)` لا يرسل response بنفسه؛ يمرر error إلى Express.
+- لأن `errorHandler` مسجلة في نهاية app، Express تعرف أن middleware التي لها أربعة arguments هي error middleware وتستدعيها.
+
+ومن `src/middleware/error-handler.ts`:
+
+```ts
+if (error instanceof AppError) {
+  res.status(error.statusCode).json({ error: error.message, requestId });
+  return;
+}
+
+logger.error("unhandled_request_error", { requestId, error });
+res.status(500).json({ error: "Internal server error", requestId });
+```
+
+`AppError` خطأ متوقع نحن أنشأناه، مثل `404 Product not found`، لذلك نعرض رسالته وstatus المقصودة. أي error غير متوقعة لا نرسل stack trace للـclient؛ نسجلها مع `requestId` ونرجع `500` عامة. الـclient تقدر ترسل `requestId` عند السؤال عن المشكلة، ونحن نبحث بها في logs.
+
 ## 4. Dependency Injection في Orders
 
 `createOrdersService()` لا تستورد Prisma وenv وoutbox writer من داخل business logic. تستقبلهم كdependencies:
@@ -168,3 +199,29 @@ Microservice حقيقية تحتاج ownership مستقل، deploy مستقل، 
 - transaction تبدأ في layer تملك العملية business كاملة.
 - لا تستورد global infrastructure داخل pure business logic إذا كان dependency injection مناسبًا.
 - لا تفصل microservices قبل أن يوجد سبب تشغيلي حقيقي.
+
+## 7. طبّق مسار endpoint جديد بنفسك
+
+خذ endpoint مثل `GET /products/:id` وامشِ بهذا الترتيب:
+
+```text
+1. validation: عرّف Zod schema لـparams.id.
+2. router: أضف GET path وvalidate + asyncHandler.
+3. controller: اقرأ input validated، نادِ service، وأعد HTTP response.
+4. service: ضع rule مثل "not found = AppError 404".
+5. repository: نفّذ Prisma query بـselect مناسب.
+6. mapper: حوّل Decimal/Prisma shape إلى public DTO.
+7. Swagger: حدّث public contract.
+```
+
+شكل router الحقيقي يظل بسيطًا:
+
+```ts
+productsRouter.get(
+  "/:id",
+  validate(productIdSchema, "params"),
+  asyncHandler(getProduct),
+);
+```
+
+هذا مثال للـendpoint عندما نضيف validation للـparams؛ endpoint الموجود حاليًا في المشروع لا يملك هذا validation بعد. اختبر بثلاث حالات: UUID صحيح موجود = `200`، UUID صحيح غير موجود = `404`، و`id` غير صالحة = `400`. إذا احتجت business decision في controller بدل service، فغالبًا حدود الطبقات اختلطت.
