@@ -166,6 +166,8 @@ kubectl rollout status deployment/mini-erp-api -n mini-erp
 
 تمت الآن إضافة Redis manifests وشرحها في [redis-statefulset-explained.ar.md](redis-statefulset-explained.ar.md). لا يزال migration job هو الشرط التالي قبل تشغيل API.
 
+تمت الآن إضافة Prisma migration Job وشرحها في [migration-job-explained.ar.md](migration-job-explained.ar.md). بعد نجاحها يصبح API Deployment الخطوة التالية.
+
 هذه خطوة مقصودة: نفهم API Deployment وService وprobes وrolling update قبل توسيع النظام.
 
 ## 10. طبّق Kubernetes بعد تجهيز dependencies

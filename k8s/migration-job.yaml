@@ -1,0 +1,24 @@
+# Run once per release before the API Deployment. This is not a server: it
+# exits successfully after Prisma has applied every pending migration.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mini-erp-migrate
+  namespace: mini-erp
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: mini-erp-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["npx", "prisma", "migrate", "deploy"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mini-erp-api-secrets
+                  key: DATABASE_URL
