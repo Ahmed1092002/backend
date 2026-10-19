@@ -53,7 +53,7 @@ docker compose down
 | API through Nginx reverse proxy | http://localhost:8080 |
 | Swagger | http://localhost:3000/api-docs |
 | Health | http://localhost:3000/health |
-| Readiness (يفحص DB وRedis) | http://localhost:3000/health/ready |
+| Readiness (يفحص PostgreSQL حاليًا) | http://localhost:3000/health/ready |
 | Prometheus metrics | http://localhost:3000/metrics |
 | Mailpit (صندوق البريد المحلي) | http://localhost:8025 |
 | Prometheus | http://localhost:9090 |
@@ -124,6 +124,13 @@ docs/               # learning notes
 - [Nginx reverse-proxy guide](docs/nginx-reverse-proxy-guide.md)
 - [Docker learning path](docs/docker-learning-path.md)
 - [Learning roadmap](docs/learning-roadmap.md)
+- [Auth and security guide](docs/auth-security-guide.md)
+- [Orders, stock, and idempotency guide](docs/orders-stock-idempotency-guide.md)
+- [Redis, BullMQ, and realtime guide](docs/redis-jobs-realtime-guide.md)
+- [API architecture guide](docs/api-architecture-guide.md)
+- [Swagger and OpenAPI guide](docs/swagger-openapi-guide.md)
+- [Database performance guide](docs/database-performance-guide.md)
+- [Production security checklist](docs/production-security-checklist.md)
 
 ## ملاحظات أمنية قبل production
 
