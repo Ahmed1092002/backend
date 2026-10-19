@@ -2,7 +2,7 @@
 
 لشرح Kubernetes من الصفر والـsyntax بالتفصيل، اقرأ أيضًا [kubernetes-from-scratch.ar.md](kubernetes-from-scratch.ar.md). ولشرح ملف الـDeployment سطرًا بسطر، اقرأ [deployment-explained.ar.md](deployment-explained.ar.md). هذا الملف يركز على تشغيل manifests الموجودة هنا.
 
-هذه الملفات هي أول ترجمة لما بنيناه في Docker Compose إلى Kubernetes. لا تطبقها الآن قبل توفر Kubernetes cluster وPostgreSQL وRedis يمكن للـPods الوصول إليهما.
+هذه الملفات هي أول ترجمة لما بنيناه في Docker Compose إلى Kubernetes. الـcluster وPostgreSQL وRedis أصبحت لها manifests؛ لا تطبق API قبل إنشاء Secrets الحقيقية وتشغيل migration Job.
 
 ## 1. ترجمة المصطلحات من Compose إلى Kubernetes
 
@@ -129,7 +129,7 @@ Secret    = DATABASE_URL وJWT_SECRET.
 
 1. Kubernetes محلية، مثل Docker Desktop Kubernetes أو Kind/Minikube.
 2. image `mini-erp-api:latest` متاحة للـcluster، أو image في registry.
-3. PostgreSQL وRedis بأسماء يمكن للـPods الوصول إليها، أو تعديل `DATABASE_URL` و`REDIS_URL` لخدمات managed خارجية.
+3. PostgreSQL وRedis healthy داخل namespace، أو تعديل `DATABASE_URL` و`REDIS_URL` لخدمات managed خارجية.
 4. Secret حقيقية محلية غير محفوظة في Git.
 
 ## 8. أوامر التطبيق لاحقًا
@@ -156,14 +156,15 @@ kubectl rollout status deployment/mini-erp-api -n mini-erp
 
 لم نضف هنا بعد:
 
-- Redis manifest.
 - Worker deployment.
 - Ingress/API Gateway.
 - RabbitMQ.
 - persistent volumes.
 - image registry أو CI/CD deployment.
 
-تمت الآن إضافة PostgreSQL manifests وشرحها في [postgres-statefulset-explained.ar.md](postgres-statefulset-explained.ar.md). لا تزال Redis وmigration job وAPI deployment الكاملة هي الخطوات التالية.
+تمت الآن إضافة PostgreSQL manifests وشرحها في [postgres-statefulset-explained.ar.md](postgres-statefulset-explained.ar.md).
+
+تمت الآن إضافة Redis manifests وشرحها في [redis-statefulset-explained.ar.md](redis-statefulset-explained.ar.md). لا يزال migration job هو الشرط التالي قبل تشغيل API.
 
 هذه خطوة مقصودة: نفهم API Deployment وService وprobes وrolling update قبل توسيع النظام.
 
@@ -177,7 +178,7 @@ kubectl get nodes
 kubectl get namespace mini-erp
 ```
 
-لا تطبّق `api-deployment.yaml` وحده الآن؛ الـAPI تحتاج `DATABASE_URL` وRedis تعملان. بعد أن نضيف manifests للـPostgreSQL وRedis وSecret محلية، سيكون ترتيب التطبيق:
+لا تطبّق `api-deployment.yaml` وحده الآن؛ الـAPI تحتاج Secret حقيقية وPrisma migration مكتملة. بعد تشغيل PostgreSQL وRedis وإنشاء Secrets، سيكون ترتيب التطبيق:
 
 ```powershell
 kubectl apply -f k8s/namespace.yaml
