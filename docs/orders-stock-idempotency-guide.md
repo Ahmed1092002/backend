@@ -1,8 +1,8 @@
 # Orders, Stock, Transactions, and Idempotency
 
-هذا الدليل يشرح لماذا Orders في المشروع ليست مجرد `INSERT`، وكيف نحمي stock من التزامن والـduplicate requests.
+‏هذا الدليل يشرح لماذا Orders في المشروع ليست مجرد ⁦`INSERT`⁩، وكيف نحمي stock من التزامن والـduplicate requests.
 
-## 1. دورة حياة Order
+## ‏1. دورة حياة Order
 
 ```text
 Create order  → status DRAFT
@@ -10,13 +10,13 @@ Confirm order → status CONFIRMED + stock decreases + inventory history + outbo
 Invoice       → متاحة فقط بعد CONFIRMED
 ```
 
-لا نخصم stock عند create order؛ draft قد تتغير أو لا تكتمل. الخصم يحصل عند confirm فقط.
+‏لا نخصم stock عند create order؛ draft قد تتغير أو لا تكتمل. الخصم يحصل عند confirm فقط.
 
 ## 2. Create Order
 
-الـclient يرسل product IDs وquantities فقط. لا يرسل price أو product name كحقيقة موثوقة.
+‏الـclient يرسل product IDs وquantities فقط. لا يرسل price أو product name كحقيقة موثوقة.
 
-السيرفر:
+‏السيرفر:
 
 ```text
 1. يقرأ products من database.
@@ -27,9 +27,9 @@ Invoice       → متاحة فقط بعد CONFIRMED
 6. ينشئ Order DRAFT وIdempotency record في transaction واحدة.
 ```
 
-Order item يحتفظ بـ`productName` و`unitPrice` snapshot. إذا تغير سعر المنتج غدًا، order القديمة لا تتغير.
+‏Order item يحتفظ بـ⁦`productName`⁩ و⁦`unitPrice`⁩ snapshot. إذا تغير سعر المنتج غدًا، order القديمة لا تتغير.
 
-### شرح create order من الكود
+### ‏شرح create order من الكود
 
 ```ts
 const products = await tx.product.findMany({
@@ -41,7 +41,7 @@ if (products.length !== input.items.length) {
 }
 ```
 
-`tx` هو Prisma transaction client، لذلك كل query بعده جزء من نفس transaction. نقرأ products من database باستخدام IDs التي أرسلها client. لا نقرأ price من client. مقارنة `length` تمنع إنشاء order فيها product ID غير موجودة.
+‏⁦`tx`⁩ هو Prisma transaction client، لذلك كل query بعده جزء من نفس transaction. نقرأ products من database باستخدام IDs التي أرسلها client. لا نقرأ price من client. مقارنة ⁦`length`⁩ تمنع إنشاء order فيها product ID غير موجودة.
 
 ```ts
 const items = input.items.map((item) => {
@@ -55,7 +55,7 @@ const items = input.items.map((item) => {
 });
 ```
 
-هذا يصنع snapshots: `productName` و`unitPrice` وقت إنشاء order. علامة `!` تقول لـTypeScript إن product موجودة؛ نحن أثبتنا ذلك في check السابقة.
+‏هذا يصنع snapshots: ⁦`productName`⁩ و⁦`unitPrice`⁩ وقت إنشاء order. علامة ⁦`!`⁩ تقول لـTypeScript إن product موجودة؛ نحن أثبتنا ذلك في check السابقة.
 
 ```ts
 const total = items.reduce(
@@ -64,11 +64,11 @@ const total = items.reduce(
 );
 ```
 
-نستخدم `Prisma.Decimal`، لا JavaScript `number`، لأن money لا يناسبها أخطاء floating point مثل `0.1 + 0.2`.
+‏نستخدم ⁦`Prisma.Decimal`⁩، لا JavaScript ⁦`number`⁩، لأن money لا يناسبها أخطاء floating point مثل ⁦`0.1 + 0.2`⁩.
 
-## 3. Confirm Order داخل Transaction
+## ‏3. Confirm Order داخل Transaction
 
-`confirmOrder` تعمل داخل Prisma transaction واحدة:
+‏⁦`confirmOrder`⁩ تعمل داخل Prisma transaction واحدة:
 
 ```text
 read DRAFT order + items
@@ -80,23 +80,23 @@ read DRAFT order + items
 → commit all or rollback all
 ```
 
-إذًا لا يحدث هذا الوضع السيئ:
+‏إذًا لا يحدث هذا الوضع السيئ:
 
 ```text
 stock decreased
 لكن order بقيت DRAFT
 ```
 
-أو:
+‏أو:
 
 ```text
 order CONFIRMED
 لكن outbox event ضاعت
 ```
 
-## 4. منع stock السالبة
+## ‏4. منع stock السالبة
 
-لكل item نستخدم atomic update بالشكل المنطقي التالي:
+‏لكل item نستخدم atomic update بالشكل المنطقي التالي:
 
 ```text
 UPDATE product
@@ -104,19 +104,19 @@ SET stock = stock - quantity
 WHERE id = productId AND stock >= quantity
 ```
 
-إذا `updated.count === 0`، لا يوجد stock كافٍ ونرجع `409`.
+‏إذا ⁦`updated.count === 0`⁩، لا يوجد stock كافٍ ونرجع ⁦`409`⁩.
 
-هذا أفضل من:
+‏هذا أفضل من:
 
 ```text
 read stock → if enough → update later
 ```
 
-لأن requestين متزامنتين قد تقرآن نفس stock قبل التحديث.
+‏لأن requestين متزامنتين قد تقرآن نفس stock قبل التحديث.
 
-نرتب items حسب product ID قبل التحديث. هذا يقلل احتمال deadlock عندما orderين تؤكدان نفس المنتجات بترتيب مختلف.
+‏نرتب items حسب product ID قبل التحديث. هذا يقلل احتمال deadlock عندما orderين تؤكدان نفس المنتجات بترتيب مختلف.
 
-### السطر الذي يمنع السباق بين الطلبات
+### ‏السطر الذي يمنع السباق بين الطلبات
 
 ```ts
 const updated = await tx.product.updateMany({
@@ -129,25 +129,25 @@ if (updated.count === 0) {
 }
 ```
 
-Prisma تحوّل هذا منطقيًا إلى SQL واحدة: "حدّث stock فقط إذا كانت الكمية الحالية كافية". لذلك requestين لا تستطيعان أن تقرآ stock نفسها ثم تخصماها معًا. `updated.count` تكون 1 عند النجاح و0 لو product غير موجودة أو stock أقل من المطلوبة؛ في هذا flow product معروفة، إذن 0 معناها stock غير كافية.
+‏Prisma تحوّل هذا منطقيًا إلى SQL واحدة: "حدّث stock فقط إذا كانت الكمية الحالية كافية". لذلك requestين لا تستطيعان أن تقرآ stock نفسها ثم تخصماها معًا. ⁦`updated.count`⁩ تكون 1 عند النجاح و0 لو product غير موجودة أو stock أقل من المطلوبة؛ في هذا flow product معروفة، إذن 0 معناها stock غير كافية.
 
-لو أي item ترمي error داخل `$transaction`، Prisma تعمل rollback لكل ما قبلها: لا order تصبح `CONFIRMED` ولا حركة stock جزئية تبقى محفوظة.
+‏لو أي item ترمي error داخل ⁦`$transaction`⁩، Prisma تعمل rollback لكل ما قبلها: لا order تصبح ⁦`CONFIRMED`⁩ ولا حركة stock جزئية تبقى محفوظة.
 
 ## 5. InventoryMovement
 
-`Product.stock` يجيب سؤال:
+‏⁦`Product.stock`⁩ يجيب سؤال:
 
 ```text
 كم القطعة المتاحة الآن؟
 ```
 
-`InventoryMovement` يجيب سؤال:
+‏⁦`InventoryMovement`⁩ يجيب سؤال:
 
 ```text
 لماذا تغير stock؟ من فعل ذلك؟ ومتى؟
 ```
 
-مثال:
+‏مثال:
 
 ```text
 productId: P1
@@ -156,9 +156,9 @@ note: Order O1 confirmed
 actorId: user who confirmed it
 ```
 
-هذه audit trail، وليست بديلًا عن current stock.
+‏هذه audit trail، وليست بديلًا عن current stock.
 
-## 6. Order وInvoice وReceipt
+## ‏6. Order وInvoice وReceipt
 
 ```text
 Order   = طلب العميل للمنتجات؛ قد يكون DRAFT أو CONFIRMED.
@@ -166,11 +166,11 @@ Invoice = مستند مالي بالمبلغ والـitems، عادة بعد con
 Receipt = إثبات أن دفعًا استُلم؛ ليس موجودًا كـpayment module كامل في هذا المشروع.
 ```
 
-Invoice PDF لا تصبح متاحة إلا للـconfirmed order؛ لا نريد invoice لطلب لم يخصم stock أو قد يتغير.
+‏Invoice PDF لا تصبح متاحة إلا للـconfirmed order؛ لا نريد invoice لطلب لم يخصم stock أو قد يتغير.
 
 ### Invoice PDF Flow
 
-endpoint الحالي:
+‏endpoint الحالي:
 
 ```text
 GET /api/orders/:id/invoice
@@ -181,7 +181,7 @@ GET /api/orders/:id/invoice
 → browser downloads PDF
 ```
 
-`invoice.service.ts` تستخدم PDFKit. لا تحفظ PDF في database أو disk في هذا المثال؛ تبني document في الذاكرة وتعمل pipe مباشرة إلى HTTP response:
+‏⁦`invoice.service.ts`⁩ تستخدم PDFKit. لا تحفظ PDF في database أو disk في هذا المثال؛ تبني document في الذاكرة وتعمل pipe مباشرة إلى HTTP response:
 
 ```text
 Confirmed Order DTO
@@ -190,25 +190,25 @@ Confirmed Order DTO
 → browser file download
 ```
 
-الـPDF تستخدم immutable order item snapshots، لذلك تعرض اسم المنتج وسعره وقت إنشاء order، لا السعر الحالي في Product table.
+‏الـPDF تستخدم immutable order item snapshots، لذلك تعرض اسم المنتج وسعره وقت إنشاء order، لا السعر الحالي في Product table.
 
 ## 7. Idempotency Key
 
-network قد تفشل بعد أن السيرفر حفظ order لكن قبل أن العميل يرى response. الـclient قد يعيد نفس POST.
+‏network قد تفشل بعد أن السيرفر حفظ order لكن قبل أن العميل يرى response. الـclient قد يعيد نفس POST.
 
-لذلك `POST /orders` تتطلب:
+‏لذلك ⁦`POST /orders`⁩ تتطلب:
 
 ```http
 Idempotency-Key: unique-random-value
 ```
 
-السيرفر ينشئ scope:
+‏السيرفر ينشئ scope:
 
 ```text
 orders.create:<userId>
 ```
 
-ويخزن:
+‏ويخزن:
 
 ```text
 scope
@@ -218,27 +218,27 @@ orderId
 createdAt
 ```
 
-## 8. لماذا `requestHash`؟
+## ‏8. لماذا ⁦`requestHash`⁩؟
 
-نحسب SHA-256 من input. إذا استُخدمت نفس key مع نفس body، نفترض أنها retry ونرجع order السابقة.
+‏نحسب SHA-256 من input. إذا استُخدمت نفس key مع نفس body، نفترض أنها retry ونرجع order السابقة.
 
 ```text
 same scope + same key + same hash
 → return original order, replayed = true
 ```
 
-لكن نفس key مع body مختلفة ليست retry آمنة:
+‏لكن نفس key مع body مختلفة ليست retry آمنة:
 
 ```text
 same scope + same key + different hash
 → 409 conflict
 ```
 
-الـfrontend يجب أن تنشئ UUID جديدة لكل محاولة business جديدة. لو user يريد order مشابهة ثانية عن قصد، تستخدم key جديدة.
+‏الـfrontend يجب أن تنشئ UUID جديدة لكل محاولة business جديدة. لو user يريد order مشابهة ثانية عن قصد، تستخدم key جديدة.
 
-## 9. Unique Constraint والتزامن
+## ‏9. Unique Constraint والتزامن
 
-هناك unique constraint على `[scope, key]`. إذا وصل requestان بنفس key في نفس الوقت:
+‏هناك unique constraint على ⁦`[scope, key]`⁩. إذا وصل requestان بنفس key في نفس الوقت:
 
 ```text
 الأولى تنشئ order + idempotency record.
@@ -246,11 +246,11 @@ same scope + same key + different hash
 الثانية تقرأ record الموجودة ثم تعيد نفس order.
 ```
 
-وهذا هو سبب وضع idempotency record وorder في نفس database transaction: لا نريد key بدون order أو order بلا key.
+‏وهذا هو سبب وضع idempotency record وorder في نفس database transaction: لا نريد key بدون order أو order بلا key.
 
-### Foreign Keys والعلاقات
+### ‏Foreign Keys والعلاقات
 
-المخطط يفرض علاقات مهمة:
+‏المخطط يفرض علاقات مهمة:
 
 ```text
 User 1 ─── many Orders
@@ -260,7 +260,7 @@ Product 1 ─ many OrderItems
 Product 1 ─ many InventoryMovements
 ```
 
-أمثلة من Prisma schema:
+‏أمثلة من Prisma schema:
 
 ```text
 Order.createdById     → User.id
@@ -269,13 +269,13 @@ OrderItem.productId   → Product.id
 IdempotencyKey.orderId → Order.id (unique + onDelete: Cascade)
 ```
 
-`@unique` على `IdempotencyKey.orderId` تعني أن order واحدة لها idempotency record واحدة فقط في التصميم الحالي. و`@@unique([scope, key])` هي الحماية الفعلية من إنشاء نفس order مرتين لنفس user/scope.
+‏⁦`@unique`⁩ على ⁦`IdempotencyKey.orderId`⁩ تعني أن order واحدة لها idempotency record واحدة فقط في التصميم الحالي. و⁦`@@unique([scope, key])`⁩ هي الحماية الفعلية من إنشاء نفس order مرتين لنفس user/scope.
 
-`onDelete: Cascade` يعني أنه عند حذف parent المحدد، database تحذف child rows المرتبطة بدل ترك rows تشير إلى record لم تعد موجودة. لا نضيف Cascade بلا تفكير؛ هي مناسبة فقط عندما child بلا معنى بدون parent.
+‏⁦`onDelete: Cascade`⁩ يعني أنه عند حذف parent المحدد، database تحذف child rows المرتبطة بدل ترك rows تشير إلى record لم تعد موجودة. لا نضيف Cascade بلا تفكير؛ هي مناسبة فقط عندما child بلا معنى بدون parent.
 
-## 10. Outbox بعد Confirm
+## ‏10. Outbox بعد Confirm
 
-عند confirm، نحفظ `OutboxEvent` في نفس transaction. بعد commit، processor يعالجها لتشغيل side effects مثل:
+‏عند confirm، نحفظ ⁦`OutboxEvent`⁩ في نفس transaction. بعد commit، processor يعالجها لتشغيل side effects مثل:
 
 ```text
 clear product cache
@@ -283,9 +283,9 @@ emit realtime stock events
 queue low-stock email
 ```
 
-تفاصيل الـOutbox موجودة في [outbox-pattern.md](outbox-pattern.md).
+‏تفاصيل الـOutbox موجودة في [outbox-pattern.md](outbox-pattern.md).
 
-### لماذا نحفظ event قبل نهاية transaction؟
+### ‏لماذا نحفظ event قبل نهاية transaction؟
 
 ```ts
 const confirmedOrder = await tx.order.update({
@@ -297,22 +297,22 @@ const confirmedOrder = await tx.order.update({
 await saveOrderConfirmedEvent(tx, { order, stockChanges });
 ```
 
-`saveOrderConfirmedEvent` تستقبل `tx` نفسها، لا Prisma client عامة. لذلك الـevent row تدخل مع stock/order في commit واحد. لو process ماتت بعد commit وقبل إرسال Socket أو email، تبقى event في database ويستطيع outbox processor إكمال side effects لاحقًا.
+‏⁦`saveOrderConfirmedEvent`⁩ تستقبل ⁦`tx`⁩ نفسها، لا Prisma client عامة. لذلك الـevent row تدخل مع stock/order في commit واحد. لو process ماتت بعد commit وقبل إرسال Socket أو email، تبقى event في database ويستطيع outbox processor إكمال side effects لاحقًا.
 
-## 11. أهم قواعد المراجعة
+## ‏11. أهم قواعد المراجعة
 
-- لا تثق في price أو name من client.
-- لا تخصم stock خارج transaction.
-- لا تنشئ invoice قبل confirmed order.
-- لا تعمل `read then write` للـstock عندما يوجد concurrency.
-- لا تعيد POST create order بلا idempotency key.
-- لا تعتبر outbox event "مرة واحدة فقط"؛ consumers يجب أن تكون idempotent.
+- ‏لا تثق في price أو name من client.
+- ‏لا تخصم stock خارج transaction.
+- ‏لا تنشئ invoice قبل confirmed order.
+- ‏لا تعمل ⁦`read then write`⁩ للـstock عندما يوجد concurrency.
+- ‏لا تعيد POST create order بلا idempotency key.
+- ‏لا تعتبر outbox event "مرة واحدة فقط"؛ consumers يجب أن تكون idempotent.
 
-## 12. طبّق الـOrder flow بنفسك
+## ‏12. طبّق الـOrder flow بنفسك
 
-### 1) أنشئ order من products موجودة
+### ‏1) أنشئ order من products موجودة
 
-احصل أولًا على access token، ثم أنشئ UUID جديدة للمحاولة التجارية الواحدة. لا تعيد استخدام UUID لطلب جديد يريده المستخدم فعلًا.
+‏احصل أولًا على access token، ثم أنشئ UUID جديدة للمحاولة التجارية الواحدة. لا تعيد استخدام UUID لطلب جديد يريده المستخدم فعلًا.
 
 ```powershell
 $token = "PUT_ACCESS_TOKEN_HERE"
@@ -325,17 +325,17 @@ $order = Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/orders `
   -Body $body
 ```
 
-النتيجة order بحالة `DRAFT`. لم يتغير stock بعد.
+‏النتيجة order بحالة ⁦`DRAFT`⁩. لم يتغير stock بعد.
 
-### 2) أثبت idempotency
+### ‏2) أثبت idempotency
 
-أعد **نفس** command السابق بنفس `$key` وbody. يجب أن تستعيد order نفسها بدل إنشاء order ثانية. ثم غيّر `quantity` واترك `$key` نفسها: يجب أن تستقبل `409` لأن هذا ليس retry لنفس الطلب.
+‏أعد **نفس** command السابق بنفس ⁦`$key`⁩ وbody. يجب أن تستعيد order نفسها بدل إنشاء order ثانية. ثم غيّر ⁦`quantity`⁩ واترك ⁦`$key`⁩ نفسها: يجب أن تستقبل ⁦`409`⁩ لأن هذا ليس retry لنفس الطلب.
 
-### 3) أكّد order ثم راقب النتيجة
+### ‏3) أكّد order ثم راقب النتيجة
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri "http://localhost:3000/api/orders/$($order.id)/confirm" `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-بعدها افحص product وحركة المخزون. المتوقع: `stock` نقصت مرة واحدة، و`InventoryMovement` تسجل `delta` سالبة، وorder أصبحت `CONFIRMED`. لو stock غير كافية فالمتوقع `409` ولا يتغير أي صف بسبب transaction.
+‏بعدها افحص product وحركة المخزون. المتوقع: ⁦`stock`⁩ نقصت مرة واحدة، و⁦`InventoryMovement`⁩ تسجل ⁦`delta`⁩ سالبة، وorder أصبحت ⁦`CONFIRMED`⁩. لو stock غير كافية فالمتوقع ⁦`409`⁩ ولا يتغير أي صف بسبب transaction.

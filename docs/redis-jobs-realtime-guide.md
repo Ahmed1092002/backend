@@ -1,6 +1,6 @@
 # Redis, BullMQ, Jobs, and Realtime Guide
 
-Redis في هذا المشروع تستخدم بثلاث طرق مختلفة. نفس Redis server، لكن كل استخدام له معنى مختلف.
+‏Redis في هذا المشروع تستخدم بثلاث طرق مختلفة. نفس Redis server، لكن كل استخدام له معنى مختلف.
 
 ```text
 1. Cache       → تسريع reads.
@@ -10,7 +10,7 @@ Redis في هذا المشروع تستخدم بثلاث طرق مختلفة. ن
 
 ## 1. Redis Cache
 
-ملف `src/cache/redis.ts` يوفر functions مثل:
+‏ملف ⁦`src/cache/redis.ts`⁩ يوفر functions مثل:
 
 ```text
 getCache(key)
@@ -19,7 +19,7 @@ deleteCache(key)
 clearProductCache()
 ```
 
-Products list/details يمكن تخزينها مؤقتًا تحت keys مثل:
+‏Products list/details يمكن تخزينها مؤقتًا تحت keys مثل:
 
 ```text
 products:...
@@ -36,13 +36,13 @@ Request products
 → return result
 ```
 
-إذا Redis غير متاحة، cache functions تسجل warning وترجع إلى database بدل أن تسقط الـAPI. هذا يسمى cache as an optimization، وليس source of truth.
+‏إذا Redis غير متاحة، cache functions تسجل warning وترجع إلى database بدل أن تسقط الـAPI. هذا يسمى cache as an optimization، وليس source of truth.
 
 ## 2. Cache Invalidation
 
-بعد create/update/delete product أو confirm order الذي يغير stock، cached products قد تصبح قديمة.
+‏بعد create/update/delete product أو confirm order الذي يغير stock، cached products قد تصبح قديمة.
 
-لذلك نحتاج clear/invalidate keys الخاصة بالمنتجات.
+‏لذلك نحتاج clear/invalidate keys الخاصة بالمنتجات.
 
 ```text
 Database changes
@@ -51,9 +51,9 @@ Database changes
 → caches it again
 ```
 
-المشكلة الأساسية في caching ليست `set`؛ هي معرفة متى تمسح value القديمة. لهذا لا نخزن stock أو prices في cache بلا invalidation plan.
+‏المشكلة الأساسية في caching ليست ⁦`set`⁩؛ هي معرفة متى تمسح value القديمة. لهذا لا نخزن stock أو prices في cache بلا invalidation plan.
 
-## 3. BullMQ: Queue وJob وWorker
+## ‏3. BullMQ: Queue وJob وWorker
 
 ```text
 Queue  = مكان دائم نسبيًا في Redis للـjobs المنتظرة.
@@ -61,7 +61,7 @@ Job    = رسالة عمل واحدة، مثل send welcome email.
 Worker = process منفصلة تسحب jobs وتعالجها.
 ```
 
-مثال register:
+‏مثال register:
 
 ```text
 User registers
@@ -70,27 +70,27 @@ User registers
 → Worker later sends email
 ```
 
-لا نرسل email داخل HTTP request لأن SMTP قد تكون بطيئة أو تقع. نجاح registration لا يجب أن ينتظر البريد.
+‏لا نرسل email داخل HTTP request لأن SMTP قد تكون بطيئة أو تقع. نجاح registration لا يجب أن ينتظر البريد.
 
-## 4. Queues الحالية
+## ‏4. Queues الحالية
 
-لدينا queue منفصلة لكل نوع عمل:
+‏لدينا queue منفصلة لكل نوع عمل:
 
 ```text
 welcome-emails
 low-stock-alerts
 ```
 
-والـworker في `src/workers/email.worker.ts` تشغّل Workers لهما.
+‏والـworker في ⁦`src/workers/email.worker.ts`⁩ تشغّل Workers لهما.
 
-الـjob لديها:
+‏الـjob لديها:
 
 ```text
 attempts: 3
 backoff: exponential, delay 1000ms
 ```
 
-مثال retry:
+‏مثال retry:
 
 ```text
 failure 1 → retry after ~1s
@@ -98,11 +98,11 @@ failure 2 → retry after ~2s
 failure 3 → retry after ~4s
 ```
 
-الفكرة من exponential backoff: لا نضرب SMTP أو dependency واقعة بطلبات سريعة متكررة.
+‏الفكرة من exponential backoff: لا نضرب SMTP أو dependency واقعة بطلبات سريعة متكررة.
 
-### شرح code إضافة job
+### ‏شرح code إضافة job
 
-من `src/jobs/email.queue.ts`:
+‏من ⁦`src/jobs/email.queue.ts`⁩:
 
 ```ts
 return getWelcomeQueue().add(
@@ -116,52 +116,52 @@ return getWelcomeQueue().add(
 );
 ```
 
-- `getWelcomeQueue()` تنشئ/تعيد Queue اسمها `welcome-emails`. استخدام `??=` يعني: أنشئها مرة واحدة فقط عند أول job، لا عند كل register request.
-- `add("welcome", data, options)` تكتب job في Redis؛ لا ترسل email الآن.
-- `data` تحتوي أقل معلومات يحتاجها worker؛ لا نضع password أو access token.
-- `jobId: welcome:<userId>` يمنع job ثانية لنفس welcome email عند retry أو تكرار event.
-- `attempts: 3` يعني المحاولة الأصلية + محاولات BullMQ حتى الحد المحدد.
-- `exponential` يبدأ بـ1000ms ثم يطول بين المحاولات؛ لا نعمل loop سريع يرهق mail server.
+- ‏⁦`getWelcomeQueue()`⁩ تنشئ/تعيد Queue اسمها ⁦`welcome-emails`⁩. استخدام ⁦`??=`⁩ يعني: أنشئها مرة واحدة فقط عند أول job، لا عند كل register request.
+- ‏⁦`add("welcome", data, options)`⁩ تكتب job في Redis؛ لا ترسل email الآن.
+- ‏⁦`data`⁩ تحتوي أقل معلومات يحتاجها worker؛ لا نضع password أو access token.
+- ‏⁦`jobId: welcome:<userId>`⁩ يمنع job ثانية لنفس welcome email عند retry أو تكرار event.
+- ‏⁦`attempts: 3`⁩ يعني المحاولة الأصلية + محاولات BullMQ حتى الحد المحدد.
+- ‏⁦`exponential`⁩ يبدأ بـ1000ms ثم يطول بين المحاولات؛ لا نعمل loop سريع يرهق mail server.
 
-## 5. Idempotency للـJobs
+## ‏5. Idempotency للـJobs
 
-Welcome email تستخدم job ID مثل:
+‏Welcome email تستخدم job ID مثل:
 
 ```text
 welcome:<userId>
 ```
 
-Low stock email تستخدم outbox event ID:
+‏Low stock email تستخدم outbox event ID:
 
 ```text
 outbox-<outboxEventId>-low-stock-<productId>
 ```
 
-هذا مهم لأن Outbox delivery at least once. إذا أعيد تشغيل نفس event، BullMQ لا تضيف low-stock job ثانية بنفس job ID.
+‏هذا مهم لأن Outbox delivery at least once. إذا أعيد تشغيل نفس event، BullMQ لا تضيف low-stock job ثانية بنفس job ID.
 
 ## 6. Socket.IO
 
-Socket.IO تجعل السيرفر يدفع events إلى frontend بدون أن frontend تعمل polling دائمًا.
+‏Socket.IO تجعل السيرفر يدفع events إلى frontend بدون أن frontend تعمل polling دائمًا.
 
-عند فتح socket، frontend ترسل access token:
+‏عند فتح socket، frontend ترسل access token:
 
 ```text
 socket.handshake.auth.token
 ```
 
-السيرفر يتحقق منها مثل HTTP JWT، ثم يضع المستخدم في room خاصة:
+‏السيرفر يتحقق منها مثل HTTP JWT، ثم يضع المستخدم في room خاصة:
 
 ```text
 user:<userId>
 ```
 
-وبعدها notification لمستخدم محدد:
+‏وبعدها notification لمستخدم محدد:
 
 ```ts
 io.to(`user:${userId}`).emit("notification:new", notification);
 ```
 
-أما product events فهي broadcast:
+‏أما product events فهي broadcast:
 
 ```text
 product:created
@@ -169,9 +169,9 @@ product:updated
 product:deleted
 ```
 
-### الحدث ليس request جديدًا
+### ‏الحدث ليس request جديدًا
 
-عندما يؤكد backend order أو يعدّل product، ينفذ code العملية أولًا ثم يطلب من Socket.IO أن يرسل event:
+‏عندما يؤكد backend order أو يعدّل product، ينفذ code العملية أولًا ثم يطلب من Socket.IO أن يرسل event:
 
 ```text
 confirm order
@@ -181,24 +181,24 @@ confirm order
 → كل frontend متصلة تسمع event وتحدث الشاشة
 ```
 
-`emit` لا ينفذ controller ثانية ولا يعيد تشغيل order. هو فقط رسالة من server إلى clients. أما notification الخاصة بمستخدم واحد فتذهب إلى room `user:<id>`، لذلك لا يراها باقي المستخدمين.
+‏⁦`emit`⁩ لا ينفذ controller ثانية ولا يعيد تشغيل order. هو فقط رسالة من server إلى clients. أما notification الخاصة بمستخدم واحد فتذهب إلى room ⁦`user:<id>`⁩، لذلك لا يراها باقي المستخدمين.
 
-## 7. لماذا Redis Adapter؟
+## ‏7. لماذا Redis Adapter؟
 
-مع API واحدة، Socket.IO memory وحدها تكفي:
+‏مع API واحدة، Socket.IO memory وحدها تكفي:
 
 ```text
 API 1 → sockets المتصلة بـAPI 1
 ```
 
-مع API-1 وAPI-2:
+‏مع API-1 وAPI-2:
 
 ```text
 API 1 emits event
 لكن user socket قد تكون متصلة بـAPI 2
 ```
 
-Redis adapter تحل ذلك:
+‏Redis adapter تحل ذلك:
 
 ```text
 API 1 emit
@@ -207,9 +207,9 @@ API 1 emit
 → API 2 delivers to its socket clients
 ```
 
-لهذا لدينا Redis publisher وRedis subscriber منفصلين في `socket.ts`. هذه connections ليست Redis cache client ولا BullMQ connection.
+‏لهذا لدينا Redis publisher وRedis subscriber منفصلين في ⁦`socket.ts`⁩. هذه connections ليست Redis cache client ولا BullMQ connection.
 
-### شرح تهيئة Socket.IO من code
+### ‏شرح تهيئة Socket.IO من code
 
 ```ts
 const nextPubClient = new Redis(env.redisUrl, { lazyConnect: true });
@@ -222,13 +222,13 @@ const socketServer = new Server(server, {
 socketServer.adapter(createAdapter(nextPubClient, nextSubClient));
 ```
 
-- `pubClient` تنشر event إلى Redis؛ `subClient` تسمع events المنشورة. Pub/Sub يحتاج اتصالين مستقلين لأن connection التي دخلت وضع subscribe لا تستخدم كـconnection عادية.
-- `lazyConnect: true` يمنع فتح الاتصال بمجرد import للملف؛ نتحكم في وقت الاتصال داخل `initializeSocket`.
-- `Promise.all` تجعل API لا تعلن Socket.IO جاهزة قبل اتصال الاثنين.
-- `new Server(server, ...)` تربط Socket.IO بنفس HTTP server الخاصة بـExpress، فلا نفتح port جديد.
-- `createAdapter(...)` هو السطر الذي يجعل `io.emit` من API-1 يصل إلى clients المتصلين بـAPI-2.
+- ‏⁦`pubClient`⁩ تنشر event إلى Redis؛ ⁦`subClient`⁩ تسمع events المنشورة. Pub/Sub يحتاج اتصالين مستقلين لأن connection التي دخلت وضع subscribe لا تستخدم كـconnection عادية.
+- ‏⁦`lazyConnect: true`⁩ يمنع فتح الاتصال بمجرد import للملف؛ نتحكم في وقت الاتصال داخل ⁦`initializeSocket`⁩.
+- ‏⁦`Promise.all`⁩ تجعل API لا تعلن Socket.IO جاهزة قبل اتصال الاثنين.
+- ‏⁦`new Server(server, ...)`⁩ تربط Socket.IO بنفس HTTP server الخاصة بـExpress، فلا نفتح port جديد.
+- ‏⁦`createAdapter(...)`⁩ هو السطر الذي يجعل ⁦`io.emit`⁩ من API-1 يصل إلى clients المتصلين بـAPI-2.
 
-ثم authentication:
+‏ثم authentication:
 
 ```ts
 const token = socket.handshake.auth.token;
@@ -237,22 +237,22 @@ socket.data.user = { id: decoded.sub, role: decoded.role as UserRole };
 socket.join(`user:${decoded.sub}`);
 ```
 
-نفس access JWT المستخدمة في HTTP تتحقق هنا. لا نقبل `userId` يرسلها browser كحقيقة. بعد `join`، `io.to("user:<id>").emit(...)` تذهب فقط لمستخدم ذلك الـroom.
+‏نفس access JWT المستخدمة في HTTP تتحقق هنا. لا نقبل ⁦`userId`⁩ يرسلها browser كحقيقة. بعد ⁦`join`⁩، ⁦`io.to("user:<id>").emit(...)`⁩ تذهب فقط لمستخدم ذلك الـroom.
 
-## 8. Sticky Sessions وRealtime
+## ‏8. Sticky Sessions وRealtime
 
-Redis adapter تنقل events بين instances، لكنها لا تكفي وحدها لـSocket.IO polling.
+‏Redis adapter تنقل events بين instances، لكنها لا تكفي وحدها لـSocket.IO polling.
 
 ```text
 Sticky session = requests لنفس client تبقى على نفس API instance.
 Redis adapter  = events تنتقل بين instances.
 ```
 
-Nginx تستخدم `ip_hash` في learning setup. راجع [nginx-reverse-proxy-guide.md](nginx-reverse-proxy-guide.md).
+‏Nginx تستخدم ⁦`ip_hash`⁩ في learning setup. راجع [nginx-reverse-proxy-guide.md](nginx-reverse-proxy-guide.md).
 
-## 9. ماذا يحدث في Shutdown؟
+## ‏9. ماذا يحدث في Shutdown؟
 
-عند graceful shutdown:
+‏عند graceful shutdown:
 
 ```text
 1. API تقطع Socket.IO connections المحلية.
@@ -261,19 +261,19 @@ Nginx تستخدم `ip_hash` في learning setup. راجع [nginx-reverse-proxy-
 4. API تقفل Redis Pub/Sub connections.
 ```
 
-راجع [graceful-shutdown-guide.md](graceful-shutdown-guide.md).
+‏راجع [graceful-shutdown-guide.md](graceful-shutdown-guide.md).
 
-## 10. قواعد مهمة
+## ‏10. قواعد مهمة
 
-- Redis cache ليست database source of truth.
-- Job يجب أن تكون retryable وidempotent.
-- Worker process منفصلة عن API HTTP process.
-- لا تضع business data الحساسة بلا حاجة داخل job payload أو realtime event.
-- لا تفترض exactly-once delivery؛ صمم consumers لتتحمل التكرار.
+- ‏Redis cache ليست database source of truth.
+- ‏Job يجب أن تكون retryable وidempotent.
+- ‏Worker process منفصلة عن API HTTP process.
+- ‏لا تضع business data الحساسة بلا حاجة داخل job payload أو realtime event.
+- ‏لا تفترض exactly-once delivery؛ صمم consumers لتتحمل التكرار.
 
-## 11. نفس Redis، ثلاث مسؤوليات مختلفة
+## ‏11. نفس Redis، ثلاث مسؤوليات مختلفة
 
-لا تخلط هذه الاستخدامات عند المراجعة:
+‏لا تخلط هذه الاستخدامات عند المراجعة:
 
 | الاستخدام | ما الذي يخزنه/ينقله؟ | إذا اختفى؟ |
 | --- | --- | --- |
@@ -281,9 +281,9 @@ Nginx تستخدم `ip_hash` في learning setup. راجع [nginx-reverse-proxy-
 | BullMQ | jobs منتظرة وحالة retries | emails/background work تتأخر أو تفشل حتى يعود Redis. |
 | Pub/Sub adapter | رسائل Socket.IO اللحظية بين instances | event لحظي قد لا يصل أثناء الانقطاع؛ لا نعتمد عليه كـdatabase. |
 
-قد يكون Redis server واحدًا في التعلم، لكن clients/connections منفصلة لأن protocols والمسؤوليات مختلفة. في production يمكن فصلها حسب الحمل والاعتمادية.
+‏قد يكون Redis server واحدًا في التعلم، لكن clients/connections منفصلة لأن protocols والمسؤوليات مختلفة. في production يمكن فصلها حسب الحمل والاعتمادية.
 
-## 12. طبّق Redis وWorker وRealtime بنفسك
+## ‏12. طبّق Redis وWorker وRealtime بنفسك
 
 ```powershell
 # شغّل Redis وAPI والـworker من compose
@@ -296,8 +296,8 @@ docker compose logs -f worker
 docker compose exec redis redis-cli ping
 ```
 
-نفّذ register لمستخدم جديد. الـAPI يجب أن ترجع response أولًا، ثم ترى في worker log أن welcome-email job عولجت. هذا هو الدليل أن HTTP request لم تنتظر email.
+‏نفّذ register لمستخدم جديد. الـAPI يجب أن ترجع response أولًا، ثم ترى في worker log أن welcome-email job عولجت. هذا هو الدليل أن HTTP request لم تنتظر email.
 
-لـcache، اطلب products مرتين ثم راقب API logs/Redis keys حسب أدواتك. أول request تعمل database read ثم cache set؛ الثانية ينبغي أن تكون cache hit. عدّل product ثم اطلبها مجددًا: يجب أن ترى القيمة الجديدة لأن invalidation أزالت القيمة القديمة.
+‏لـcache، اطلب products مرتين ثم راقب API logs/Redis keys حسب أدواتك. أول request تعمل database read ثم cache set؛ الثانية ينبغي أن تكون cache hit. عدّل product ثم اطلبها مجددًا: يجب أن ترى القيمة الجديدة لأن invalidation أزالت القيمة القديمة.
 
-لـSocket.IO، شغّل frontend أو client Socket.IO، أرسل access token في `auth.token`، ثم عدّل product. client تستقبل `product:updated`. لو شغّلت API-1 وAPI-2، Redis adapter تسمح بوصول event حتى لو client متصلة بالنسخة الأخرى.
+‏لـSocket.IO، شغّل frontend أو client Socket.IO، أرسل access token في ⁦`auth.token`⁩، ثم عدّل product. client تستقبل ⁦`product:updated`⁩. لو شغّلت API-1 وAPI-2، Redis adapter تسمح بوصول event حتى لو client متصلة بالنسخة الأخرى.

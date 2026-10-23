@@ -1,10 +1,10 @@
 # Mini ERP on Kubernetes: First API Deployment
 
-لشرح Kubernetes من الصفر والـsyntax بالتفصيل، اقرأ أيضًا [kubernetes-from-scratch.ar.md](kubernetes-from-scratch.ar.md). ولشرح ملف الـDeployment سطرًا بسطر، اقرأ [deployment-explained.ar.md](deployment-explained.ar.md). هذا الملف يركز على تشغيل manifests الموجودة هنا.
+‏لشرح Kubernetes من الصفر والـsyntax بالتفصيل، اقرأ أيضًا [kubernetes-from-scratch.ar.md](kubernetes-from-scratch.ar.md). ولشرح ملف الـDeployment سطرًا بسطر، اقرأ [deployment-explained.ar.md](deployment-explained.ar.md). هذا الملف يركز على تشغيل manifests الموجودة هنا.
 
-هذه الملفات هي أول ترجمة لما بنيناه في Docker Compose إلى Kubernetes. الـcluster وPostgreSQL وRedis أصبحت لها manifests؛ لا تطبق API قبل إنشاء Secrets الحقيقية وتشغيل migration Job.
+‏هذه الملفات هي أول ترجمة لما بنيناه في Docker Compose إلى Kubernetes. الـcluster وPostgreSQL وRedis أصبحت لها manifests؛ لا تطبق API قبل إنشاء Secrets الحقيقية وتشغيل migration Job.
 
-## 1. ترجمة المصطلحات من Compose إلى Kubernetes
+## ‏1. ترجمة المصطلحات من Compose إلى Kubernetes
 
 | Docker Compose | Kubernetes | المعنى |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ Kubernetes Service: mini-erp-api
 mini-erp-api.mini-erp.svc.cluster.local
 ```
 
-## 2. الملفات
+## ‏2. الملفات
 
 ```text
 namespace.yaml          مساحة معزولة باسم mini-erp
@@ -34,22 +34,22 @@ api-deployment.yaml     API replicas + probes + rolling update
 api-service.yaml        عنوان داخلي ثابت للـAPI
 ```
 
-## 3. لماذا يوجد Deployment وليس api وapi-2؟
+## ‏3. لماذا يوجد Deployment وليس api وapi-2؟
 
-في Compose كتبنا service ثانية يدويًا للتعلم:
+‏في Compose كتبنا service ثانية يدويًا للتعلم:
 
 ```text
 api
 api-2
 ```
 
-في Kubernetes نكتب المطلوب فقط:
+‏في Kubernetes نكتب المطلوب فقط:
 
 ```yaml
 replicas: 2
 ```
 
-والـDeployment تفعل الباقي:
+‏والـDeployment تفعل الباقي:
 
 ```text
 إذا Pod وقعت → تنشئ Pod بديلة.
@@ -57,30 +57,30 @@ replicas: 2
 إذا طلبت 3 replicas → تنشئ الثالثة.
 ```
 
-## 4. Readiness وLiveness
+## ‏4. Readiness وLiveness
 
-لدينا endpointين من التطبيق:
+‏لدينا endpointين من التطبيق:
 
 ```text
 /health       → التطبيق process تعمل
 /health/ready → التطبيق + PostgreSQL جاهزان
 ```
 
-لذلك:
+‏لذلك:
 
 ```text
 readinessProbe = /health/ready
 ```
 
-طالما readiness تفشل، Kubernetes Service لا ترسل traffic إلى هذه الـPod.
+‏طالما readiness تفشل، Kubernetes Service لا ترسل traffic إلى هذه الـPod.
 
 ```text
 livenessProbe = /health
 ```
 
-لو liveness تفشل عدة مرات، Kubernetes تفترض أن process غير سليمة وتعيد تشغيل الـPod.
+‏لو liveness تفشل عدة مرات، Kubernetes تفترض أن process غير سليمة وتعيد تشغيل الـPod.
 
-لا نستخدم `/health/ready` كـliveness probe لأن database outage لا يعني بالضرورة أن Node process نفسها يجب قتلها وإعادة تشغيلها.
+‏لا نستخدم ⁦`/health/ready`⁩ كـliveness probe لأن database outage لا يعني بالضرورة أن Node process نفسها يجب قتلها وإعادة تشغيلها.
 
 ## 5. Rolling Update
 
@@ -92,7 +92,7 @@ strategy:
     maxSurge: 1
 ```
 
-عند image جديدة ومع `replicas: 2`:
+‏عند image جديدة ومع ⁦`replicas: 2`⁩:
 
 ```text
 old-1, old-2 running
@@ -108,33 +108,33 @@ new-2 starts and becomes ready
 old-2 shuts down
 ```
 
-`maxUnavailable: 0` يعني لا نريد تقليل الـready replicas أثناء update. `maxSurge: 1` يسمح بPod إضافية مؤقتًا كي نبدأ الجديدة قبل إيقاف القديمة.
+‏⁦`maxUnavailable: 0`⁩ يعني لا نريد تقليل الـready replicas أثناء update. ⁦`maxSurge: 1`⁩ يسمح بPod إضافية مؤقتًا كي نبدأ الجديدة قبل إيقاف القديمة.
 
-`terminationGracePeriodSeconds: 20` يعطي graceful shutdown في Node.js وقتًا كافيًا؛ التطبيق يفرض timeout داخليًا قدره 10 ثوانٍ.
+‏⁦`terminationGracePeriodSeconds: 20`⁩ يعطي graceful shutdown في Node.js وقتًا كافيًا؛ التطبيق يفرض timeout داخليًا قدره 10 ثوانٍ.
 
-## 6. Secret وConfigMap
+## ‏6. Secret وConfigMap
 
 ```text
 ConfigMap = قيم عادية مثل Redis URL وmail host.
 Secret    = DATABASE_URL وJWT_SECRET.
 ```
 
-لا تطبق `api-secret.example.yaml` كما هو. انسخه إلى `api-secret.yaml`، ضع قيمك الحقيقية، وأضف الاسم إلى `.gitignore`.
+‏لا تطبق ⁦`api-secret.example.yaml`⁩ كما هو. انسخه إلى ⁦`api-secret.yaml`⁩، ضع قيمك الحقيقية، وأضف الاسم إلى ⁦`.gitignore`⁩.
 
-## 7. متطلبات قبل التطبيق
+## ‏7. متطلبات قبل التطبيق
 
-أمر `kubectl config current-context` عندنا الآن أعاد خطأ، وهذا يعني أنه لا يوجد cluster مفعّل بعد.
+‏أمر ⁦`kubectl config current-context`⁩ عندنا الآن أعاد خطأ، وهذا يعني أنه لا يوجد cluster مفعّل بعد.
 
-قبل تطبيق الـAPI نحتاج:
+‏قبل تطبيق الـAPI نحتاج:
 
-1. Kubernetes محلية، مثل Docker Desktop Kubernetes أو Kind/Minikube.
-2. image `mini-erp-api:latest` متاحة للـcluster، أو image في registry.
-3. PostgreSQL وRedis healthy داخل namespace، أو تعديل `DATABASE_URL` و`REDIS_URL` لخدمات managed خارجية.
-4. Secret حقيقية محلية غير محفوظة في Git.
+1. ‏Kubernetes محلية، مثل Docker Desktop Kubernetes أو Kind/Minikube.
+2. ‏image ⁦`mini-erp-api:latest`⁩ متاحة للـcluster، أو image في registry.
+3. ‏PostgreSQL وRedis healthy داخل namespace، أو تعديل ⁦`DATABASE_URL`⁩ و⁦`REDIS_URL`⁩ لخدمات managed خارجية.
+4. ‏Secret حقيقية محلية غير محفوظة في Git.
 
-## 8. أوامر التطبيق لاحقًا
+## ‏8. أوامر التطبيق لاحقًا
 
-بعد تجهيز المتطلبات:
+‏بعد تجهيز المتطلبات:
 
 ```powershell
 kubectl apply -f k8s/namespace.yaml
@@ -144,7 +144,7 @@ kubectl apply -f k8s/api-deployment.yaml
 kubectl apply -f k8s/api-service.yaml
 ```
 
-ثم راقب:
+‏ثم راقب:
 
 ```powershell
 kubectl get pods -n mini-erp
@@ -152,27 +152,27 @@ kubectl get service -n mini-erp
 kubectl rollout status deployment/mini-erp-api -n mini-erp
 ```
 
-## 9. حدود هذه الخطوة
+## ‏9. حدود هذه الخطوة
 
-لم نضف هنا بعد:
+‏لم نضف هنا بعد:
 
 - Worker deployment.
 - Ingress/API Gateway.
 - RabbitMQ.
 - persistent volumes.
-- image registry أو CI/CD deployment.
+- ‏image registry أو CI/CD deployment.
 
-تمت الآن إضافة PostgreSQL manifests وشرحها في [postgres-statefulset-explained.ar.md](postgres-statefulset-explained.ar.md).
+‏تمت الآن إضافة PostgreSQL manifests وشرحها في [postgres-statefulset-explained.ar.md](postgres-statefulset-explained.ar.md).
 
-تمت الآن إضافة Redis manifests وشرحها في [redis-statefulset-explained.ar.md](redis-statefulset-explained.ar.md). لا يزال migration job هو الشرط التالي قبل تشغيل API.
+‏تمت الآن إضافة Redis manifests وشرحها في [redis-statefulset-explained.ar.md](redis-statefulset-explained.ar.md). لا يزال migration job هو الشرط التالي قبل تشغيل API.
 
-تمت الآن إضافة Prisma migration Job وشرحها في [migration-job-explained.ar.md](migration-job-explained.ar.md). بعد نجاحها يصبح API Deployment الخطوة التالية.
+‏تمت الآن إضافة Prisma migration Job وشرحها في [migration-job-explained.ar.md](migration-job-explained.ar.md). بعد نجاحها يصبح API Deployment الخطوة التالية.
 
-هذه خطوة مقصودة: نفهم API Deployment وService وprobes وrolling update قبل توسيع النظام.
+‏هذه خطوة مقصودة: نفهم API Deployment وService وprobes وrolling update قبل توسيع النظام.
 
-## 10. طبّق Kubernetes بعد تجهيز dependencies
+## ‏10. طبّق Kubernetes بعد تجهيز dependencies
 
-بما أن الـcluster عندك أصبحت جاهزة، ابدأ دائمًا بالفحص لا بالـapply:
+‏بما أن الـcluster عندك أصبحت جاهزة، ابدأ دائمًا بالفحص لا بالـapply:
 
 ```powershell
 kubectl config current-context
@@ -180,7 +180,7 @@ kubectl get nodes
 kubectl get namespace mini-erp
 ```
 
-لا تطبّق `api-deployment.yaml` وحده الآن؛ الـAPI تحتاج Secret حقيقية وPrisma migration مكتملة. بعد تشغيل PostgreSQL وRedis وإنشاء Secrets، سيكون ترتيب التطبيق:
+‏لا تطبّق ⁦`api-deployment.yaml`⁩ وحده الآن؛ الـAPI تحتاج Secret حقيقية وPrisma migration مكتملة. بعد تشغيل PostgreSQL وRedis وإنشاء Secrets، سيكون ترتيب التطبيق:
 
 ```powershell
 kubectl apply -f k8s/namespace.yaml
@@ -190,7 +190,7 @@ kubectl apply -f k8s/api-deployment.yaml
 kubectl apply -f k8s/api-service.yaml
 ```
 
-ثم راقب بدل التخمين:
+‏ثم راقب بدل التخمين:
 
 ```powershell
 kubectl get pods -n mini-erp -w
@@ -198,4 +198,4 @@ kubectl describe deployment mini-erp-api -n mini-erp
 kubectl logs deployment/mini-erp-api -n mini-erp --tail=100
 ```
 
-`-w` تعني watch: سترى Pod تُنشأ، تمر readiness، ثم تصبح `Running`. إذا بقيت `Pending` أو `CrashLoopBackOff`، لا تغيّر YAML عشوائيًا؛ ابدأ بـ`describe pod` و`logs` لمعرفة السبب الفعلي.
+‏⁦`-w`⁩ تعني watch: سترى Pod تُنشأ، تمر readiness، ثم تصبح ⁦`Running`⁩. إذا بقيت ⁦`Pending`⁩ أو ⁦`CrashLoopBackOff`⁩، لا تغيّر YAML عشوائيًا؛ ابدأ بـ⁦`describe pod`⁩ و⁦`logs`⁩ لمعرفة السبب الفعلي.

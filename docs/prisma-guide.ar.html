@@ -1,0 +1,221 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>دليل Prisma من مشروع Mini ERP</title><style>body{font-family:Segoe UI,Tahoma,Arial,sans-serif;line-height:1.9;max-width:960px;margin:2rem auto;padding:0 1.4rem;color:#202633;background:#fff}h1,h2,h3{line-height:1.5;margin-top:2em;color:#14253b}h1{font-size:2em}p,li{text-align:right}li{margin:.5em 0}code{direction:ltr;unicode-bidi:isolate;display:inline-block;background:#eef1f5;padding:0 .25em;border-radius:3px;font-family:Consolas,monospace}pre{direction:ltr;text-align:left;overflow:auto;background:#17212e;color:#f2f6fa;padding:1em;border-radius:6px;line-height:1.5}pre code{background:none;color:inherit;display:inline;padding:0;unicode-bidi:normal}strong{color:#152c46}@media print{body{max-width:none}pre{white-space:pre-wrap}}</style></head><body><h1>دليل Prisma من مشروع Mini ERP</h1>
+<p>الدليل ده معمول عشان تفهم Prisma من الكود اللي عندك، مش تحفظ أوامر. اقرأ جزء صغير وجرّب تجاوب السؤال قبل اللي بعده. الأمثلة من المشروع الحالي؛ الأوامر الموضحة للتعلّم، وما اتنفذتش أثناء كتابة الدليل.</p>
+<h2>1. المشكلة التي تحلها Prisma</h2>
+<p>عندنا PostgreSQL، وهي قاعدة البيانات اللي بتحفظ المنتجات والمستخدمين والطلبات. PostgreSQL بتفهم SQL: لغة لقراءة البيانات وتعديلها. في Node.js نحتاج طريقة نتصل بها ونرسل طلبات لقاعدة البيانات ونستقبل النتائج.</p>
+<p>Prisma أدوات بتساعدنا نوصف البيانات ونستخدمها من TypeScript. في المشروع عندنا ثلاثة أجزاء مهمة:</p>
+<ol>
+<li><code dir="ltr">prisma/schema.prisma</code>: وصف الـmodels وإعداد الاتصال وطريقة توليد العميل.</li>
+<li><code dir="ltr">prisma/migrations/</code>: تاريخ تغييرات قاعدة البيانات في ملفات SQL.</li>
+<li>Prisma Client: كود مُولَّد بنستخدمه في التطبيق، زي <code dir="ltr">prisma.product.findUnique(...)</code>.</li>
+</ol>
+<p>PostgreSQL هي اللي تخزن البيانات وتنفذ الاستعلامات. Prisma Client يرسل لها الاستعلام ويرجع النتيجة. الـschema وحده لا يغيّر قاعدة البيانات بمجرد حفظ الملف.</p>
+<p><strong>فكر:</strong> لو أغلقت تطبيق Node، فين بيانات المنتجات؟ في PostgreSQL، طالما تخزين قاعدة البيانات ما اتمسحش.</p>
+<h2>2. كيف يعرف التطبيق قاعدة البيانات؟</h2>
+<p>من <code dir="ltr">prisma/schema.prisma</code>:</p>
+<pre dir="ltr"><code>generator client {
+  provider = &quot;prisma-client-js&quot;
+}
+
+datasource db {
+  provider = &quot;postgresql&quot;
+  url      = env(&quot;DATABASE_URL&quot;)
+}</code></pre>
+<p><code dir="ltr">generator</code> يحدد طريقة توليد Prisma Client. و<code dir="ltr">datasource</code> يحدد نوع قاعدة البيانات وعنوان الاتصال. <code dir="ltr">env(&quot;DATABASE_URL&quot;)</code> يقرأ العنوان من متغير بيئة؛ مش مكتوب كقيمة ثابتة في الملف. العنوان ممكن يختلف بين التشغيل المحلي وداخل Docker. لا تشارك قيمته لو فيها كلمة سر.</p>
+<p>في <code dir="ltr">src/database/prisma.ts</code>:</p>
+<pre dir="ltr"><code>import { PrismaClient } from &quot;@prisma/client&quot;;
+
+export const prisma = new PrismaClient();</code></pre>
+<p>السطر الأول يستورد العميل المُولَّد، والثاني ينشئ نسخة يستخدمها التطبيق. باقي الملفات تستورد <code dir="ltr">prisma</code> بدل إنشاء عميل جديد لكل request؛ إنشاء نسخ كثيرة قد يؤدي لاتصالات أكثر من اللازم بقاعدة البيانات.</p>
+<p><strong>فكر:</strong> هل <code dir="ltr">new PrismaClient()</code> هو قاعدة البيانات نفسها؟ لا، هو العميل الذي يستخدمه التطبيق للتواصل معها.</p>
+<h2>3. قراءة model المنتج</h2>
+<p>من <code dir="ltr">prisma/schema.prisma</code>، جزء من الـmodel الحقيقي:</p>
+<pre dir="ltr"><code>model Product {
+  id        String   @id @default(uuid())
+  name      String
+  price     Decimal  @db.Decimal(10, 2)
+  stock     Int      @default(0)
+  imagePath String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}</code></pre>
+<p>الـmodel وصف لكيان نتعامل معه؛ <code dir="ltr">Product</code> مرتبط بجدول المنتجات. الحقل مثل عمود في الجدول، والسجل مثل صف يمثل منتجًا واحدًا.</p>
+<ul>
+<li><code dir="ltr">id String</code>: معرف نصي. <code dir="ltr">@id</code> يجعله المفتاح الأساسي، أي يميز كل صف. <code dir="ltr">@default(uuid())</code> يولد معرفًا تلقائيًا عبر Prisma عند عدم إعطائه.</li>
+<li><code dir="ltr">name String</code>: اسم مطلوب.</li>
+<li><code dir="ltr">price Decimal @db.Decimal(10, 2)</code>: سعر عشري، وتحديد PostgreSQL يسمح بعشرة أرقام إجمالًا، منها رقمان بعد العلامة.</li>
+<li><code dir="ltr">stock Int @default(0)</code>: عدد صحيح وقيمته الافتراضية صفر إذا لم تُرسل قيمة.</li>
+<li><code dir="ltr">imagePath String?</code>: علامة <code dir="ltr">?</code> تعني أن القيمة يمكن أن تكون <code dir="ltr">null</code>.</li>
+<li><code dir="ltr">createdAt @default(now())</code>: وقت الإنشاء الافتراضي.</li>
+<li><code dir="ltr">updatedAt @updatedAt</code>: Prisma تدير وقت آخر تحديث عند استخدام Prisma Client.</li>
+</ul>
+<p>الـmodel الفعلي فيه علاقات أيضًا، هنشرحها بعد قليل. ملاحظة: الـid في مشروعنا UUID نصي، فالأرقام اللي استخدمناها سابقًا مثل <code dir="ltr">12</code> كانت لتوضيح توجيه الطلب فقط وليست مثالًا على ID منتج فعلي في هذا المشروع.</p>
+<p><strong>فكر:</strong> لو لم نرسل <code dir="ltr">stock</code> عند الإنشاء، ما قيمته الافتراضية؟ وماذا تعني <code dir="ltr">?</code> في <code dir="ltr">imagePath</code>؟</p>
+<h2>4. رحلة قراءة منتج واحد</h2>
+<p>في <code dir="ltr">src/modules/products/products.controller.ts</code>، الـcontroller يأخذ <code dir="ltr">id</code> من الطلب وينادي الـservice. الـservice في <code dir="ltr">products.service.ts</code> تنادي الـrepository:</p>
+<pre dir="ltr"><code>const product = await productsRepository.findById(id);
+return product ? toProductResponseDto(product) : undefined;</code></pre>
+<p>والـrepository في <code dir="ltr">products.repository.ts</code> تنفذ:</p>
+<pre dir="ltr"><code>export function findById(id: string) {
+  return prisma.product.findUnique({
+    where: { id },
+    select: productResponseSelect,
+  });
+}</code></pre>
+<ul>
+<li><code dir="ltr">prisma.product</code>: التعامل مع Product من العميل المُولَّد.</li>
+<li><code dir="ltr">findUnique</code>: ابحث بقيمة حقل فريد؛ <code dir="ltr">id</code> فريد لأنه المفتاح الأساسي.</li>
+<li><code dir="ltr">where: { id }</code>: شرط البحث. معناها نفسها <code dir="ltr">where: { id: id }</code>.</li>
+<li><code dir="ltr">select</code>: اختر الحقول التي ستعود من قاعدة البيانات.</li>
+<li>لا يوجد منتج مطابق؟ النتيجة <code dir="ltr">null</code>. الـservice تحولها إلى <code dir="ltr">undefined</code>، والـcontroller يرد بـ404.</li>
+</ul>
+<p>الاختيار الحقيقي يطلب <code dir="ltr">id</code>, <code dir="ltr">name</code>, <code dir="ltr">price</code>, <code dir="ltr">stock</code>, <code dir="ltr">imagePath</code>. بعدها الـmapper ينشئ شكل الرد، ويحوّل <code dir="ltr">price</code> إلى رقم ويضع <code dir="ltr">imagePath</code> تحت اسم <code dir="ltr">imageUrl</code>. اختيار الأعمدة يحصل في الاستعلام؛ تشكيل رد الـAPI يحصل بعده.</p>
+<p><strong>تجربة قراءة فقط:</strong> افتح <code dir="ltr">products.repository.ts</code> وحدد تعريف <code dir="ltr">productResponseSelect</code>، ثم قارن حقوله مع <code dir="ltr">toProductResponseDto</code> في <code dir="ltr">products.mapper.ts</code>. أي حقل تغير اسمه؟ لا تحتاج لتشغيل أو تعديل شيء.</p>
+<h2>5. عمليات القراءة والكتابة</h2>
+<p>هذه أساليب موجودة فعلًا في repository المنتجات:</p>
+<pre dir="ltr"><code>prisma.product.create({ data });
+prisma.product.update({ where: { id }, data });
+prisma.product.delete({ where: { id } });</code></pre>
+<p><code dir="ltr">create</code> ينشئ صفًا من القيم في <code dir="ltr">data</code>. <code dir="ltr">update</code> يحدد صفًا فريدًا بـ<code dir="ltr">where</code> ويعدل القيم المرسلة. <code dir="ltr">delete</code> يحذف الصف المحدد. التعديل والحذف قد يفشلان إذا لم يوجد الصف، والحذف قد يفشل أيضًا بسبب قيود العلاقات. التعامل مع أخطاء Prisma يحتاج مراجعة الكود الذي يستدعي العملية، مش افتراض إن كل فشل معناه 404.</p>
+<p><code dir="ltr">findMany</code> يرجع مجموعة قد تكون فاضية، و<code dir="ltr">count</code> يرجع عدد السجلات المطابقة. هذه تختلف عن <code dir="ltr">findUnique</code> التي ترجع سجلًا واحدًا أو <code dir="ltr">null</code>.</p>
+<p><strong>فكر:</strong> لو عايز عدد المنتجات المطابقة لفلتر، هل أنسب تقرأ العدد بـ<code dir="ltr">count</code> أم تفترض إن <code dir="ltr">findUnique</code> ترجع قائمة؟</p>
+<h2>6. الفلترة والترتيب والصفحات</h2>
+<p>في <code dir="ltr">findPage</code> داخل <code dir="ltr">products.repository.ts</code> الاستعلام الفعلي يتضمن:</p>
+<pre dir="ltr"><code>return prisma.product.findMany({
+  select: productResponseSelect,
+  orderBy,
+  where,
+  skip: options.offset,
+  take: options.limit,
+});</code></pre>
+<p><code dir="ltr">where</code> يحدد المطابقة، مثل الاسم أو مدى السعر. <code dir="ltr">orderBy</code> يحدد الترتيب، مثل السعر تصاعديًا. <code dir="ltr">skip</code> يتجاوز عددًا من النتائج، و<code dir="ltr">take</code> يحد عدد النتائج المرجعة. هذا يسمى pagination: تقسيم النتائج لصفحات بدل إرجاعها كلها. <code dir="ltr">count</code> في المشروع يستخدم نفس الفلاتر لحساب العدد الإجمالي، بشكل منفصل عن صفحة النتائج.</p>
+<p>مثال: بعد الترتيب، <code dir="ltr">skip: 10</code> و<code dir="ltr">take: 5</code> يعني تجاهل أول عشرة وإرجاع حتى خمسة بعدها. الترتيب مهم لتفسير الصفحات. صفحة النتائج والعدد هنا استعلامان منفصلان، وليسا لقطة ثابتة مضمونة إذا تغيرت البيانات بينهما.</p>
+<p><strong>فكر:</strong> ما الفرق بين عدد النتائج في الصفحة وبين العدد الإجمالي المطابق للفلتر؟</p>
+<h2>7. العلاقات بين الجداول</h2>
+<p>الطلب الواحد يحتوي عدة عناصر. من الـschema:</p>
+<pre dir="ltr"><code>model Order {
+  id    String      @id @default(uuid())
+  items OrderItem[]
+  // حقول أخرى موجودة في الملف الأصلي
+}
+
+model OrderItem {
+  orderId String
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // حقول أخرى موجودة في الملف الأصلي
+}</code></pre>
+<p>هذه مقتطفات وليست models كاملة. <code dir="ltr">orderId</code> يخزن معرف الطلب المرتبط بالعنصر. <code dir="ltr">@relation</code> يربط هذا الحقل بـ<code dir="ltr">Order.id</code>. و<code dir="ltr">items</code> تتيح الوصول للعناصر المرتبطة من جهة الطلب. <code dir="ltr">onDelete: Cascade</code> تعني أن حذف الطلب في قاعدة البيانات يحذف عناصره المرتبطة وفق قيد العلاقة؛ لذلك افهم أثر الحذف قبل تجربته.</p>
+<p>في <code dir="ltr">orders.service.ts</code>:</p>
+<pre dir="ltr"><code>const orderToConfirm = await tx.order.findUnique({
+  where: { id: orderId },
+  include: { items: true },
+});</code></pre>
+<p><code dir="ltr">include</code> تطلب إرجاع عناصر الطلب مع الطلب. الفرق العملي عن <code dir="ltr">select</code>: <code dir="ltr">select</code> يحدد الحقول المراد إرجاعها، بينما <code dir="ltr">include</code> يضيف العلاقات المطلوبة إلى نتيجة السجل. طريقة تنفيذ الاستعلام داخليًا تعتمد على Prisma والإعدادات؛ لا نفترض عدد استعلامات SQL من شكل السطر فقط.</p>
+<p><strong>فكر:</strong> أي حقل في <code dir="ltr">OrderItem</code> يحمل معرف الطلب المرتبط؟</p>
+<h2>8. ما الفرق بين schema وmigration وgenerate؟</h2>
+<p>تخيل إنك عايز تضيف حقلًا: الـschema يصف الشكل المطلوب، لكن قاعدة البيانات الحالية لا تتغير فقط بحفظه. الـmigration ملف SQL يمثل تغييرًا يمكن تطبيقه على قاعدة البيانات. مجلد <code dir="ltr">prisma/migrations</code> عندنا يحتوي تاريخًا فعليًا لهذه التغييرات.</p>
+<p>أول migration مثلًا يحتوي <code dir="ltr">CREATE TABLE &quot;public&quot;.&quot;Product&quot;</code>؛ هو تاريخ إنشاء الجدول وقتها، وليس بالضرورة وصفه الحالي، لأن migrations لاحقة أضافت تغييرات.</p>
+<p><code dir="ltr">prisma generate</code> يولد أو يحدث Prisma Client من الـschema؛ هو لا يطبق migration على قاعدة البيانات. <code dir="ltr">prisma migrate dev</code> مخصص لتطوير migrations محليًا وقد يطلب إجراءات مؤثرة على قاعدة التطوير حسب حالتها. <code dir="ltr">prisma migrate deploy</code> يطبق migrations الموجودة على قاعدة البيانات المستهدفة. تحقق دائمًا من <code dir="ltr">DATABASE_URL</code> والبيئة والأثر قبل تشغيل أوامر تعدل البيانات. لا تشغل reset أو تحذف بيانات للتجربة دون فهم الأثر وأخذ موافقتك.</p>
+<p><strong>تجربة آمنة للقراءة:</strong> افتح <code dir="ltr">prisma/migrations/20261008143702_init/migration.sql</code> وقارن أعمدة Product فيه مع الـschema الحالي. لماذا قد يختلفان؟</p>
+<h2>9. Transaction من تأكيد الطلب</h2>
+<p>الـtransaction مجموعة تغييرات على قاعدة البيانات نريد اعتمادها معًا أو التراجع عنها معًا عند فشلها. في <code dir="ltr">orders.service.ts</code>:</p>
+<pre dir="ltr"><code>const result = await prisma.$transaction(async (tx) =&gt; {
+  // قراءة الطلب والتحقق منه
+  // خصم المخزون وتسجيل الحركة وتأكيد الطلب وحفظ الحدث
+});</code></pre>
+<p>هذه التعليقات تلخيص لما داخل الدالة وليست نسخة حرفية من الكود. <code dir="ltr">tx</code> عميل للعمليات داخل نفس المعاملة؛ عملياتها في المشروع تشمل تحديث المخزون وإنشاء حركات المخزون وتأكيد الطلب وحفظ حدث Outbox. لو رُمي خطأ قبل نجاح المعاملة، تتراجع تغييرات قاعدة البيانات داخلها. الـtransaction لا تتراجع تلقائيًا عن إرسال إيميل أو أي عملية خارج قاعدة البيانات.</p>
+<p>داخلها سطر مهم حقيقي:</p>
+<pre dir="ltr"><code>const updated = await tx.product.updateMany({
+  where: { id: item.productId, stock: { gte: item.quantity } },
+  data: { stock: { decrement: item.quantity } },
+});</code></pre>
+<p>التحديث يشترط المنتج والمخزون الكافي في نفس العملية، ويخصم الكمية. <code dir="ltr">updated.count</code> يخبرنا كم صفًا تحدّث؛ إذا كان صفرًا، الكود يرمي خطأ ويوقف تأكيد الطلب. وضع الشرط والخصم في تحديث واحد يساعد في منع بيع مخزون غير كافٍ مع طلبات متزامنة. تفاصيل التزامن الأوسع تستحق مراجعة منفصلة، خصوصًا لو طلبان يحاولان تأكيد نفس الطلب.</p>
+<p><strong>فكر:</strong> لو خصمنا المخزون ثم فشل تسجيل الحركة داخل نفس transaction، هل نريد حفظ الخصم وحده؟</p>
+<h2>10. Index باختصار</h2>
+<p>الـindex بنية إضافية في قاعدة البيانات تساعدها أحيانًا على العثور على البيانات أو ترتيبها بسرعة؛ لها تكلفة تخزين وتحديث، وليست ضمانًا أن كل استعلام سيستخدمها.</p>
+<p>في <code dir="ltr">InventoryMovement</code> عندنا:</p>
+<pre dir="ltr"><code>@@index([productId, createdAt])
+@@index([productId, createdAt, id])</code></pre>
+<p>الترتيب هنا مرتبط بالبحث عن حركات منتج وترتيبها. الكود يوضح أن الثاني يساعد ترتيب cursor pagination. لا نحكم على الفائدة أو نحذف index بالتخمين؛ نراجع خطة الاستعلام والقياسات أولًا.</p>
+<h2>11. تتدرب إزاي؟</h2>
+<p>ابدأ بالقراءة فقط، خطوة واحدة كل مرة:</p>
+<ol>
+<li>افتح <code dir="ltr">prisma/schema.prisma</code> واقرأ <code dir="ltr">Product</code>. اشرح لنفسك الفرق بين <code dir="ltr">String?</code> و<code dir="ltr">String</code>.</li>
+<li>افتح <code dir="ltr">products.repository.ts</code> وتتبع <code dir="ltr">findById</code>، ثم ارجع للـservice والـmapper والـcontroller. اكتب لنفسك ماذا يحدث إذا لم يجد منتجًا.</li>
+<li>اقرأ <code dir="ltr">findPage</code> وحدد الفلتر والترتيب والصفحة. توقع أثر <code dir="ltr">skip</code> و<code dir="ltr">take</code> بأرقام صغيرة.</li>
+<li>اقرأ علاقة <code dir="ltr">Order</code> و<code dir="ltr">OrderItem</code>، وحدد مكان المفتاح الذي يربطهما.</li>
+<li>اقرأ transaction تأكيد الطلب، وحدد ما يجب أن يُحفظ معًا وما يحصل عند خطأ المخزون.</li>
+</ol>
+<p>لو احتجت تجربة على بيانات فعلية، افحص البيئة أولًا واستخدم بيانات تجريبية. لا تحذف containers أو volumes أو سجلات، ولا تشغّل migrations أو reset، قبل فهم الأثر والتأكد منك.</p>
+<h2>12. أسئلة تراجع بها نفسك</h2>
+<ol>
+<li>ما الفرق بين PostgreSQL وPrisma Client؟</li>
+<li>هل حفظ schema يغير قاعدة البيانات وحده؟ وما وظيفة generate؟</li>
+<li>ماذا ترجع <code dir="ltr">findUnique</code> إذا لم تجد صفًا؟</li>
+<li>لماذا نستخدم <code dir="ltr">select</code>؟ وما وظيفة الـmapper بعده؟</li>
+<li>ما الفرق بين <code dir="ltr">where</code> و<code dir="ltr">data</code> في <code dir="ltr">update</code>؟</li>
+<li>كيف يعرف <code dir="ltr">OrderItem</code> الطلب المرتبط به؟</li>
+<li>لماذا يحتاج تأكيد الطلب إلى transaction؟ وما حدودها خارج قاعدة البيانات؟</li>
+</ol>
+<p>لو سؤال واقف معاك، ارجع للجزء المرتبط به وجرب تشرح الإجابة باستخدام اسم ملف وسطر من مشروعك.</p>
+<h2>13. إضافة Prisma إلى مشروع جديد</h2>
+<p>المشروع الحالي فيه Prisma بالفعل. الخطوات التالية للتعلّم أو لمشروع جديد؛ لا تعيد تهيئة مشروعنا ولا تنفذها على قاعدة بيانات مهمة. المشروع يستخدم Prisma 6، لذلك أمثلته وإعداداته خاصة بهذا الإصدار، وقد تختلف خطوات الإصدارات الأخرى.</p>
+<p>في مشروع TypeScript جديد نحتاج الحزم التالية: حزمة CLI للتوليد والـmigrations، وعميل التشغيل للتطبيق. مثال تعليمي مع نفس الإصدار الرئيسي المستخدم هنا:</p>
+<pre dir="ltr"><code>npm install @prisma/client@6
+npm install --save-dev prisma@6
+npx prisma init --datasource-provider postgresql</code></pre>
+<p>الأول يضيف عميل التشغيل، والثاني أدوات التطوير، والثالث ينشئ ملفات إعداد أولية؛ قد يرفض أو يتعارض مع ملفات موجودة. بعد ذلك نضبط عنوان اتصال تجريبي في متغير <code dir="ltr">DATABASE_URL</code>، ونكتب الـmodels في schema، وننشئ migration في قاعدة تطوير مخصصة، ثم نتأكد من توليد العميل. لا تضع بيانات الاتصال الحقيقية في Git.</p>
+<p>في مشروعنا عندك فعلًا <code dir="ltr">prisma/schema.prisma</code> و<code dir="ltr">src/database/prisma.ts</code> والـdependencies في <code dir="ltr">package.json</code>. لا تحتاج الأوامر السابقة لمجرد تشغيل المشروع الحالي.</p>
+<h3>عنوان الاتصال من جهازك ومن Docker</h3>
+<p>الـPostgreSQL في Compose ينشر المنفذ 5433 على الجهاز، بينما منفذ الخدمة داخل شبكة Compose هو 5432. لذلك من الجهاز نستخدم <code dir="ltr">localhost:5433</code>، ومن حاوية أخرى في نفس شبكة Compose نستخدم اسم الخدمة <code dir="ltr">postgres:5432</code>. كلمة <code dir="ltr">localhost</code> دائمًا تعني البيئة التي ينفذ فيها البرنامج نفسه. تأكد من المستخدم والقاعدة والقيم عندك قبل أي اتصال.</p>
+<p><strong>فكر:</strong> لو تطبيق Node يعمل في container، هل <code dir="ltr">localhost</code> يقصد جهازك أم الـcontainer نفسه؟</p>
+<h2>14. تدريب متكامل على إضافة حقل</h2>
+<p>هذا سيناريو تعليمي فقط: نريد إضافة وصف اختياري للمنتج. لا تعدل المشروع الآن؛ افهم التسلسل أولًا. على قاعدة تطوير منفصلة، أضف للـmodel:</p>
+<pre dir="ltr"><code>description String?</code></pre>
+<p>علامة الاستفهام تسمح للمنتجات القديمة بعدم وجود وصف. بعد مراجعة الـschema وتحديد قاعدة التطوير المقصودة، يمكن إنشاء migration باسم مفهوم:</p>
+<pre dir="ltr"><code>npx prisma migrate dev --name add_product_description</code></pre>
+<p>الأمر ينشئ migration اعتمادًا على الفرق ويطبقها على قاعدة التطوير؛ وقد يطلب reset أو يكشف مشكلة drift، فلا توافق تلقائيًا لأن reset يمسح البيانات. راجع ملف SQL الناتج ونتيجة الأمر. قد يستخدم Prisma قاعدة ظل مؤقتة لمقارنة تاريخ migrations. ثم تأكد أن العميل محدث؛ المشروع يوفر <code dir="ltr">npm run prisma:generate</code> لتوليده. لا تجعل إضافة الحقل للـAPI ضمنية: لو أردنا استقبال الوصف أو إظهاره فعلينا تعديل validation والأنواع والاستعلام والـmapper حسب المطلوب.</p>
+<p>إضافة حقل في schema ليست إضافة ميزة كاملة في API. تغيير schema وmigration وclient وكود التطبيق خطوات منفصلة تتعاون معًا.</p>
+<p><strong>فكر:</strong> لو أضفنا <code dir="ltr">description</code> في schema فقط، لماذا قد لا يظهر في رد المنتج الحالي؟ راجع <code dir="ltr">productResponseSelect</code> والـmapper.</p>
+<h2>15. migration معقدة بدون خسارة البيانات</h2>
+<p>المشكلة: جدول فيه بيانات قديمة، ونريد إضافة حقل مطلوب مثل <code dir="ltr">sku</code>، وهو كود مميز لكل منتج. لو أضفت عمودًا مطلوبًا بلا قيمة للصفوف القديمة، قد تفشل migration. ولو وضعت نفس القيمة الافتراضية لكل الصفوف ثم أضفت شرط uniqueness، ستفشل عند وجود أكثر من صف.</p>
+<p>الحل التعليمي يعتمد على مراحل، وكل مرحلة تحتاج مراجعة واختبار على نسخة بيانات مناسبة:</p>
+<ol>
+<li><strong>توسيع:</strong> أضف <code dir="ltr">sku</code> اختياريًا أولًا، وانشر تطبيقًا يفهم وجوده أو غيابه ويكتب القيمة للمنتجات الجديدة.</li>
+<li><strong>ملء البيانات القديمة:</strong> جهز backfill، يعني عملية تملأ القيم القديمة بقيم صحيحة وفريدة. اختبرها أولًا على بيانات ممثلة للواقع، وصممها لتستأنف بأمان لو توقفت. التوليد يجب أن يحترم قواعد النشاط، وليس أرقامًا نفترض صلاحيتها.</li>
+<li><strong>تحقق:</strong> افحص القيم الفارغة والتكرارات قبل فرض القيود. هذا فحص قراءة فقط، لكنه يجب أن يعمل على قاعدة التطوير المقصودة:</li>
+</ol>
+<pre dir="ltr"><code>SELECT COUNT(*) FROM &quot;Product&quot; WHERE &quot;sku&quot; IS NULL;
+SELECT &quot;sku&quot;, COUNT(*) FROM &quot;Product&quot;
+WHERE &quot;sku&quot; IS NOT NULL
+GROUP BY &quot;sku&quot; HAVING COUNT(*) &gt; 1;</code></pre>
+<ol>
+<li><strong>فرض القواعد:</strong> بعد نجاح التحقق وتأكد أن كل النسخ تكتب <code dir="ltr">sku</code>، أضف قيد uniqueness وجعله مطلوبًا عبر migration مدروسة. اختبر الفشل، مدة التنفيذ، الأقفال وخطة الرجوع أولًا.</li>
+<li><strong>تنظيف:</strong> بعد التأكد أن النسخ القديمة لا تحتاج التوافق، أزل الكود المؤقت في تغيير لاحق.</li>
+</ol>
+<p>هذه ليست migration جاهزة للتطبيق على مشروعنا؛ <code dir="ltr">sku</code> غير موجود في الـschema الحالي. أثناء rolling deployment قد تعمل نسختان من التطبيق في وقت واحد، لذا يجب أن تتوافق كل مرحلة مع النسختين. على جدول كبير حتى إنشاء index أو فرض قيد قد يسبب انتظارًا أو ضغطًا؛ اختبر على بيئة مشابهة وراجع أسلوب PostgreSQL المناسب قبل التنفيذ.</p>
+<p>إذا احتجت SQL مخصصًا، يمكنك في قاعدة تطوير مخصصة استخدام <code dir="ltr">npx prisma migrate dev --name ... --create-only</code> لإنشاء ملف migration دون تطبيقه، ثم مراجعته وتعديله واختباره قبل التطبيق. حتى إنشاء الملف يغير ملفات المشروع، وليس أمر قراءة فقط. migrations المطبقة لا تعدل تاريخها بشكل عشوائي؛ عالج الأخطاء في بيئة مناسبة وبخطة واضحة. <code dir="ltr">migrate deploy</code> يطبق الملفات الموجودة ولا يضمن وحده إصلاح اختلافات غير متوقعة بين schema والقاعدة.</p>
+<p><strong>فكر:</strong> لماذا لا نفرض أن <code dir="ltr">sku</code> مطلوب وفريد قبل ملء بيانات المنتجات القديمة؟</p>
+<h2>16. قراءة index وفهم متى يفيد</h2>
+<p>تخيل جدول حركات مخزون كبيرًا، وتريد أحدث حركات منتج معين. لو كان عندك فهرس مناسب، PostgreSQL قد تستخدمه لتصل لصفوف المنتج وتساعدها في الترتيب بدل فحص كل الجدول؛ القرار فعليًا يتوقف على حجم البيانات والإحصاءات وخطة الاستعلام.</p>
+<p>في مشروعنا migration موجودة باسم <code dir="ltr">20261014110000_add_inventory_movement_cursor_index</code>:</p>
+<pre dir="ltr"><code>CREATE INDEX &quot;InventoryMovement_productId_createdAt_id_idx&quot;
+ON &quot;InventoryMovement&quot;(&quot;productId&quot;, &quot;createdAt&quot;, &quot;id&quot;);</code></pre>
+<p>أول عمود <code dir="ltr">productId</code> مناسب لفلترة حركات منتج، ثم <code dir="ltr">createdAt</code> و<code dir="ltr">id</code> مرتبطان بالترتيب والـcursor. ترتيب الأعمدة مؤثر؛ هذا ليس فهرسًا سحريًا لكل بحث ممكن. الفهرس الإضافي يستهلك مساحة ويحتاج تحديثًا مع الكتابة. في المشروع الفهرس القديم <code dir="ltr">[productId, createdAt]</code> ما زال موجودًا؛ التعليق يقول الاحتفاظ به لحين وجود قياسات كافية، لا أنه يجب حذفه.</p>
+<p>الـindex العادي يسرع بعض الاستعلامات لكنه لا يمنع التكرار. <code dir="ltr">@unique</code> و<code dir="ltr">@@unique</code> يفرضان عدم تكرار القيم وفق القيد. في <code dir="ltr">IdempotencyKey</code> يوجد <code dir="ltr">@@unique([scope, key])</code>، أي الزوج معًا فريد؛ يمكن تكرار <code dir="ltr">key</code> في <code dir="ltr">scope</code> مختلف. قياس الاستعلام يتم بخطة PostgreSQL مثل <code dir="ltr">EXPLAIN</code> على بيئة مناسبة؛ <code dir="ltr">EXPLAIN ANALYZE</code> ينفذ الاستعلام فعلًا، فاحذر إذا كان استعلام كتابة.</p>
+<h2>17. تفاصيل transactions والتزامن</h2>
+<p>في مثال الطلب، إنشاء الطلب وعناصره وسجل مفتاح idempotency يحدث داخل transaction. تأكيد الطلب في transaction أخرى يخصم المخزون ويسجل الحركة ويحدث حالة الطلب ويحفظ حدث outbox. إذا رمى الكود خطأ داخل المعاملة تتراجع تغييراتها في قاعدة البيانات؛ بعدها يقرر التطبيق كيف يتعامل مع الخطأ.</p>
+<pre dir="ltr"><code>const updated = await tx.product.updateMany({
+  where: { id: item.productId, stock: { gte: item.quantity } },
+  data: { stock: { decrement: item.quantity } },
+});</code></pre>
+<p>لو المخزون 5 وطلبان مختلفان يريد كل منهما 4، الشرط والخصم في تحديث واحد يساعدان على ألا يخصم الطلب الثاني من مخزون لم يعد كافيًا. مجرد قراءة 5 في التطبيق ثم كتابة 1 لاحقًا من كل طلب قد يسبب نتيجة خاطئة. لكن transaction وحدها لا تحل كل سباقات العمل: تأكيد الطلب نفسه من طلبين في نفس الوقت يحتاج تحليلًا مستقلًا لطريقة قفل الصف أو التحديث المشروط والحالة. لا نستنتج من المثال ضمانًا شاملًا لكل سيناريو تزامن.</p>
+<p>الـisolation level يعني قواعد ما يمكن للمعاملات المتزامنة رؤيته من تغييرات بعضها. الـdeadlock يحدث عندما تنتظر معاملات أقفالًا تحتفظ بها معاملات أخرى في دائرة؛ ترتيب تحديث المنتجات في المشروع يقلل خطره ولا يلغيه. بعض أخطاء التزامن تستدعي إعادة محاولة مدروسة، مع التأكد أن العملية قابلة للإعادة بأمان. لا تبقِ transaction مفتوحة أثناء اتصال شبكة بطيء أو إرسال إيميل؛ المعاملة لا تضمن التراجع عن خدمة خارجية. الـoutbox في المشروع يحفظ حدثًا داخل المعاملة لمعالجته لاحقًا.</p>
+<h2>18. تشخيص المشاكل بدل حفظ الأوامر</h2>
+<ul>
+<li>اتصال فشل: أين يعمل التطبيق؟ هل عنوان <code dir="ltr">DATABASE_URL</code> مناسب لهذه البيئة؟ هل PostgreSQL جاهزة والبيانات والصلاحيات صحيحة؟ لا تنشر كلمة المرور.</li>
+<li>عمود مفقود: قارن الـschema والـmigration المطبقة وقاعدة البيانات المستهدفة، ثم تأكد أن التطبيق متصل بالقاعدة الصحيحة.</li>
+<li>TypeScript لا يرى حقلًا جديدًا: افحص schema وتوليد Prisma Client واستيراده، ثم أعد فحص الأنواع. توليد العميل لا يطبق تغييرات القاعدة.</li>
+<li>تعارض فريد: ابحث عن القيد والبيانات المكررة؛ في إنشاء الطلب المشروع يتعامل مع <code dir="ltr">P2002</code> لمفتاح idempotency، لكنه يتحقق أيضًا أن السجل المتوقع موجود وأن الطلب له نفس المحتوى.</li>
+<li>عملية بطيئة: افحص شروط الاستعلام وحجم النتائج والترتيب وخطة التنفيذ قبل افتراض أن index جديد هو الحل.</li>
+</ul>
+<p>ابدأ دائمًا بتحديد البيئة والعملية المتأثرة. لا تستخدم reset أو تحذف بيانات كخطوة تشخيص افتراضية.</p></body></html>
